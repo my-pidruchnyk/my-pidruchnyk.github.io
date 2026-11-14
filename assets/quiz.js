@@ -827,7 +827,7 @@
           toSelect.innerHTML = '';
 
           if (pNums.length) {
-            const minP = Math.min(...pNums);
+            const minP = 1;
             const maxP = Math.max(...pNums);
 
             for (let i = minP; i <= maxP; i++) {
