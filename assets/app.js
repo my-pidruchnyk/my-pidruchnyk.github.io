@@ -244,15 +244,47 @@
     } else {
       html += `<div class="nb-head"><span class="nb-kind">${esc(KIND[t.kind] || 'Сторінка')}</span>${font}</div>`;
       if (t.title) html += `<h2>${esc(t.title)}</h2>`;
+      if (window.Quiz && window.Quiz.hasQuestions(t)) {
+        html += `<div class="quiz-launch-bar">
+          <button class="btn-quiz-launch" id="btn-quiz-launch" type="button" aria-label="Пройти тест до матеріалу сторінки">
+            <span class="quiz-launch-badge">⚡ ТЕСТ</span>
+            <span class="quiz-launch-text">Перевірити знання сторінки</span>
+            <span class="quiz-launch-arr">→</span>
+          </button>
+        </div>`;
+      }
       if (t.points?.length) html += `<ul class="points">${t.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>`;
       if (t.formulas?.length) html += `<h3>Формули</h3>${t.formulas.map(f => `<div class="formula">${esc(f)}</div>`).join(' ')}`;
       if (t.terms?.length) html += `<h3>Запам'ятай</h3><dl class="terms">${t.terms.map(x => `<div><dt>${esc(x.term)}</dt><dd>${esc(x.def)}</dd></div>`).join('')}</dl>`;
       if (t.example) html += `<h3>Приклад</h3><p class="example">${esc(t.example)}</p>`;
+      if (window.Quiz && window.Quiz.hasQuestions(t)) {
+        html += `<div class="quiz-bottom-prompt">
+          <p>Закріплення теми</p>
+          <button class="btn-quiz-launch" id="btn-quiz-bottom" type="button" aria-label="Пройти тест до матеріалу сторінки">
+            <span class="quiz-launch-badge">🎯 ТЕСТ</span>
+            <span class="quiz-launch-text">Перевірити засвоєння матеріалу</span>
+            <span class="quiz-launch-arr">→</span>
+          </button>
+        </div>`;
+      }
     }
     html += `<details class="raw" id="raw"><summary>Текст сторінки</summary><pre id="rawtext">…</pre></details>`;
     el.innerHTML = html;
     document.getElementById('notes').scrollTop = 0;
     applyNotebook();
+    const triggerQuiz = () => {
+      if (window.Quiz) {
+        window.Quiz.open({
+          book: state.book,
+          page: state.page,
+          pageLabel: lb || String(state.page),
+          theses: state.theses,
+          onNextPage: () => turn(1)
+        });
+      }
+    };
+    document.getElementById('btn-quiz-launch')?.addEventListener('click', triggerQuiz);
+    document.getElementById('btn-quiz-bottom')?.addEventListener('click', triggerQuiz);
     document.getElementById('raw').addEventListener('toggle', async e => {
       if (!e.target.open) return;
       try {
