@@ -841,11 +841,13 @@
           } else {
             // Предмети без позначки § (за темами / сторінками)
             const pagesCount = currentBook?.pages || 200;
+            // Use paragraph‑style labels for plain pages
+            const labelPrefix = '§';
             const step = 20;
             for (let p = 1; p <= pagesCount; p += step) {
               const endP = Math.min(p + step - 1, pagesCount);
-              fromSelect.add(new Option(`с. ${p}`, String(p)));
-              toSelect.add(new Option(`с. ${endP}`, String(endP)));
+              fromSelect.add(new Option(`${labelPrefix} ${p}`, String(p)));
+              toSelect.add(new Option(`${labelPrefix} ${endP}`, String(endP)));
             }
             toSelect.value = String(Math.min(60, pagesCount));
             statsText.textContent = `Тематичний діапазон · Формат: 12 запитань (А, Б, В, Г)`;
