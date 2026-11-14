@@ -129,7 +129,7 @@
       });
     }
 
-    // 2. Лаконічні питання "Правда чи хибно" (Так / Ні) за тезами теми (до 4 шт.)
+    // 2. Лаконічні питання за тезами теми (завжди 4 варіанти відповідей)
     const pointsToUse = [...curPoints, ...poolPoints];
     for (let i = 0; i < pointsToUse.length; i++) {
       if (questions.filter(q => q.id.startsWith('q_tf_')).length >= 4 || questions.length >= TARGET_COUNT) break;
@@ -145,7 +145,12 @@
         questions.push({
           id: `q_tf_${questions.length + 1}`,
           title: qTitle,
-          options: ['Так, правильно', 'Ні, це помилка'],
+          options: [
+            'Так, це твердження повністю правильне',
+            'Ні, це твердження є помилковим',
+            'Це твердження стосується іншої теми',
+            'Це твердження діє лише як виняток'
+          ],
           correctIndex: 0,
           explanation: `Це твердження повністю правильне: «${pt}».`
         });
@@ -156,7 +161,12 @@
         questions.push({
           id: `q_tf_${questions.length + 1}`,
           title: qTitle,
-          options: ['Ні, твердження є вірним', 'Так, воно помилкове'],
+          options: [
+            'Ні, твердження є повністю вірним',
+            'Так, це твердження помилкове',
+            'Твердження стосується зовсім іншого розділу',
+            'Твердження суперечить основним законам'
+          ],
           correctIndex: 0,
           explanation: `Це твердження насправді є вірним: «${pt}».`
         });
@@ -233,6 +243,13 @@
         correctIndex: opts.indexOf(correctOpt),
         explanation: `Правильне твердження: «${pt}».`
       });
+    }
+
+    // Гарантуємо, що кожне питання має рівно 4 варіанти (А, Б, В, Г)
+    for (const q of questions) {
+      while (q.options.length < 4) {
+        q.options.push(`Додатковий варіант ${q.options.length + 1}`);
+      }
     }
 
     // Гарантуємо рівно 12 запитань
