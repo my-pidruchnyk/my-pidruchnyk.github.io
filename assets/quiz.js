@@ -941,4 +941,6 @@
   }
 
   window.Quiz = new QuizEngine();
+  // expose generator for external use (SR/KR modal)
+  window.Quiz.genForRange = generateQuestionsForRange;
 })();

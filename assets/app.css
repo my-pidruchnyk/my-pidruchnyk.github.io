@@ -2466,3 +2466,82 @@ body.auth-modal-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== SR / KR modal styles ===== */
+.wm-box { max-width: 680px; width: 95vw; max-height: 90vh; overflow-y: auto; }
+
+.wm-range-row { display: flex; gap: 1rem; }
+.wm-range-row label { flex: 1; }
+
+/* Variant count buttons */
+.wm-variant-btns { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+.wm-vbtn {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.18);
+  color: #c8d6e5;
+  border-radius: 6px;
+  padding: .3rem .7rem;
+  font-size: .8rem;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.wm-vbtn.active { background: rgba(0,240,255,.18); border-color: #00f0ff; color: #00f0ff; font-weight: 700; }
+.wm-vbtn:hover:not(.active) { background: rgba(255,255,255,.12); }
+
+/* Sliders */
+.wm-sliders { margin: .8rem 0; display: flex; flex-direction: column; gap: .5rem; }
+.wm-slider-row { display: flex; align-items: center; gap: .6rem; }
+.wm-sl-label { font-size: .78rem; color: #8fa0b3; min-width: 140px; }
+.wm-slider-row input[type=range] { flex: 1; accent-color: #00f0ff; }
+.wm-sl-val { font-size: .82rem; font-weight: 700; color: #00f0ff; min-width: 36px; text-align: right; }
+.wm-slider-sum { font-size: .78rem; text-align: right; color: #8fa0b3; }
+
+.wm-hint { font-size: .75rem; color: #7dff4d; margin: .3rem 0 .8rem; }
+
+/* Preview tabs */
+#wm-preview { margin-top: 1.2rem; }
+.wm-tabs { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.wm-tab {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.15);
+  color: #c8d6e5;
+  border-radius: 6px;
+  padding: .3rem .9rem;
+  font-size: .82rem;
+  cursor: pointer;
+  transition: background .15s;
+}
+.wm-tab.active { background: rgba(0,240,255,.2); border-color: #00f0ff; color: #fff; font-weight: 700; }
+
+/* Panel */
+.wm-panel.hidden { display: none; }
+.wm-qlist { list-style: none; padding: 0; margin: 0 0 .8rem; display: flex; flex-direction: column; gap: .35rem; }
+.wm-q {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 6px;
+  padding: .45rem .7rem;
+  font-size: .82rem;
+  color: #d4e5f7;
+  display: flex;
+  gap: .5rem;
+}
+.wm-qn { color: #00f0ff; font-weight: 700; min-width: 1.6rem; }
+
+/* Panel buttons */
+.wm-panel-btns { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .6rem; }
+.wm-btn-quiz {
+  font-size: .82rem;
+  padding: .5rem 1rem;
+}
+.wm-btn-pdf {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.18);
+  color: #c8d6e5;
+  border-radius: 8px;
+  padding: .5rem 1rem;
+  font-size: .82rem;
+  cursor: pointer;
+  transition: background .15s;
+}
+.wm-btn-pdf:hover { background: rgba(255,255,255,.14); color: #fff; }
