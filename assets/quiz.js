@@ -31,171 +31,212 @@
     return a;
   }
 
-  /* Генератор запитань з конспекту сторінки */
+  // Допоміжна функція для створення коротких, лаконічних формулювань
+  function shortText(text, max = 68) {
+    if (!text) return '';
+    const clean = String(text).replace(/\s+/g, ' ').trim();
+    if (clean.length <= max) return clean;
+    const cut = clean.slice(0, max);
+    const lastSpace = cut.lastIndexOf(' ');
+    return (lastSpace > 25 ? cut.slice(0, lastSpace) : cut) + '…';
+  }
+
+  /* Генератор 12 лаконічних запитань з конспекту сторінки та теми */
   function generateQuestions(theses, allTheses, pageNum) {
     if (!theses) return [];
-    
-    // 1. Якщо у конспекті вже є готові авторські тести
-    if (Array.isArray(theses.tests) && theses.tests.length) return theses.tests;
-    if (Array.isArray(theses.test) && theses.test.length) return theses.test;
 
+    // Якщо в конспекті вже є 12 готових авторських тестів
+    if (Array.isArray(theses.tests) && theses.tests.length === 12) return theses.tests;
+
+    const TARGET_COUNT = 12;
     const questions = [];
+    const usedTitles = new Set();
+
+    // Збираємо базу понять, тез і формул з поточної сторінки та всього підручника
+    const curTerms = Array.isArray(theses.terms) ? [...theses.terms] : [];
+    const curPoints = Array.isArray(theses.points) ? [...theses.points] : [];
+    const curFormulas = Array.isArray(theses.formulas) ? [...theses.formulas] : [];
+
     const poolTerms = [];
     const poolPoints = [];
     const poolFormulas = [];
 
-    // Збираємо базу понять, тез і формул з інших сторінок підручника для реалістичних варіантів
     if (allTheses) {
-      for (const [p, t] of Object.entries(allTheses)) {
-        if (p === String(pageNum) || !t) continue;
+      // Спочатку сторінки поблизу (той самий параграф / розділ)
+      const curP = parseInt(pageNum, 10) || 1;
+      const pagesSorted = Object.keys(allTheses).map(n => parseInt(n, 10)).filter(Boolean)
+        .sort((a, b) => Math.abs(a - curP) - Math.abs(b - curP));
+
+      for (const p of pagesSorted) {
+        const t = allTheses[String(p)];
+        if (!t) continue;
         if (Array.isArray(t.terms)) {
-          for (const item of t.terms) if (item.term && item.def) poolTerms.push(item);
-        }
-        if (Array.isArray(t.points)) {
-          for (const pt of t.points) if (pt && pt.length > 25 && pt.length < 180) poolPoints.push(pt);
-        }
-        if (Array.isArray(t.formulas)) {
-          for (const f of t.formulas) if (f) poolFormulas.push(f);
-        }
-      }
-    }
-
-    // Запитання 1: За термінами (якщо є розділ "Запам'ятай")
-    if (Array.isArray(theses.terms) && theses.terms.length) {
-      const tItem = theses.terms[0];
-      const correctDef = tItem.def;
-      const distractors = [];
-
-      // Інші визначення з поточної сторінки
-      for (let i = 1; i < theses.terms.length; i++) {
-        if (theses.terms[i].def) distractors.push(theses.terms[i].def);
-      }
-      // Визначення з інших сторінок підручника
-      const shuffledPool = shuffle(poolTerms);
-      for (const pt of shuffledPool) {
-        if (distractors.length >= 3) break;
-        if (pt.def !== correctDef && !distractors.includes(pt.def)) {
-          distractors.push(pt.def);
-        }
-      }
-      // Запасні варіанти, якщо визначень у книжці мало
-      const fallbacks = [
-        'Показник, що не впливає на фізичні та геометричні властивості тіла',
-        'Одиниця вимірювання, що застосовується лише в теоретичних розрахунках',
-        'Процес, який відбувається виключно за стандартних умов'
-      ];
-      for (const fb of fallbacks) {
-        if (distractors.length >= 3) break;
-        if (!distractors.includes(fb)) distractors.push(fb);
-      }
-
-      const opts = shuffle([correctDef, ...distractors.slice(0, 3)]);
-      questions.push({
-        id: 'term_1',
-        title: `Що означає поняття «${tItem.term}»?`,
-        options: opts,
-        correctIndex: opts.indexOf(correctDef),
-        explanation: `Згідно з конспектом сторінки: «${tItem.term}» — це ${tItem.def}.`
-      });
-
-      // Якщо термінів декілька, можна створити зворотне запитання
-      if (theses.terms.length > 1) {
-        const tItem2 = theses.terms[1];
-        const correctTerm = tItem2.term;
-        const termDistractors = [];
-        for (const pt of shuffledPool) {
-          if (termDistractors.length >= 3) break;
-          if (pt.term !== correctTerm && !termDistractors.includes(pt.term)) {
-            termDistractors.push(pt.term);
+          for (const item of t.terms) {
+            if (item.term && item.def) poolTerms.push(item);
           }
         }
-        while (termDistractors.length < 3) {
-          termDistractors.push(`Поняття ${termDistractors.length + 1}`);
+        if (Array.isArray(t.points)) {
+          for (const pt of t.points) {
+            if (pt && pt.length > 15) poolPoints.push(pt);
+          }
         }
-        const termOpts = shuffle([correctTerm, ...termDistractors.slice(0, 3)]);
-        questions.push({
-          id: 'term_2',
-          title: `Якому поняттю відповідає визначення: «${tItem2.def}»?`,
-          options: termOpts,
-          correctIndex: termOpts.indexOf(correctTerm),
-          explanation: `Це визначення поняття «${tItem2.term}». У конспекті зазначено: ${tItem2.term} — ${tItem2.def}.`
-        });
+        if (Array.isArray(t.formulas)) {
+          for (const f of t.formulas) {
+            if (f) poolFormulas.push(f);
+          }
+        }
       }
     }
 
-    // Запитання 2: За ключовими тезами (points)
-    if (Array.isArray(theses.points) && theses.points.length) {
-      const p1 = theses.points[0];
-      const distractors = [];
+    // Резервні терміни та визначення, якщо в підручнику мало даних
+    const fallbackTerms = [
+      { term: 'Величина', def: 'кількісна характеристика властивості тіла або процесу' },
+      { term: 'Процес', def: 'послідовна зміна станів об’єкта або системи' },
+      { term: 'Закон', def: 'необхідний і сталий зв’язок між явищами' },
+      { term: 'Система', def: 'сукупність взаємопов’язаних елементів' },
+      { term: 'Одиниця виміру', def: 'фіксована міра для кількісного порівняння' },
+      { term: 'Параметр', def: 'величина, що описує стан досліджуваної системи' }
+    ];
+    for (const fb of fallbackTerms) {
+      if (poolTerms.length < 15) poolTerms.push(fb);
+    }
 
-      // Беремо тези з інших сторінок підручника
-      const shuffledPts = shuffle(poolPoints);
-      for (const pt of shuffledPts) {
-        if (distractors.length >= 3) break;
-        if (pt !== p1 && !distractors.includes(pt)) {
-          distractors.push(pt);
+    // 1. Питання типу "Визначення → Термін" (короткі варіанти відповідей з 1-2 слів, до 4 шт.)
+    const termsToUse = [...curTerms, ...poolTerms];
+    for (const item of termsToUse) {
+      if (questions.filter(q => q.id.startsWith('q_term_')).length >= 4 || questions.length >= TARGET_COUNT) break;
+      const qTitle = `Який термін означає: «${shortText(item.def, 58)}»?`;
+      if (usedTitles.has(qTitle)) continue;
+
+      const correctTerm = item.term;
+      const dists = [];
+      for (const other of shuffle(poolTerms)) {
+        if (dists.length >= 3) break;
+        if (other.term !== correctTerm && !dists.includes(other.term)) {
+          dists.push(other.term);
         }
       }
-      const genericDistractors = [
-        'Цей процес не має практичного значення у повсякденному житті та техніці',
-        'Усі параметри системи залишаються незмінними за будь-яких умов',
-        'Дане явище спостерігається виключно в умовах абсолютного вакууму'
-      ];
-      for (const gd of genericDistractors) {
-        if (distractors.length >= 3) break;
-        if (!distractors.includes(gd)) distractors.push(gd);
-      }
+      while (dists.length < 3) dists.push(`Термін ${dists.length + 1}`);
 
-      const opts = shuffle([p1, ...distractors.slice(0, 3)]);
+      const opts = shuffle([correctTerm, ...dists.slice(0, 3)]);
+      usedTitles.add(qTitle);
       questions.push({
-        id: 'point_main',
-        title: 'Яке з наведених тверджень безпосередньо відповідає матеріалу цієї сторінки?',
+        id: `q_term_${questions.length + 1}`,
+        title: qTitle,
         options: opts,
-        correctIndex: opts.indexOf(p1),
-        explanation: `Правильне твердження з конспекту цієї сторінки: «${p1}». Інші варіанти стосуються інших тем або є помилковими.`
+        correctIndex: opts.indexOf(correctTerm),
+        explanation: `Правильно: «${item.term}». Визначення: ${item.def}.`
       });
+    }
 
-      // Додаткове запитання на верифікацію твердження
-      if (theses.points.length > 1) {
-        const p2 = theses.points[1];
-        const opts2 = [
-          'Так, це твердження повністю правильне',
-          'Ні, у конспекті стверджується протилежне',
-          'Це твердження стосується зовсім іншої теми'
-        ];
+    // 2. Лаконічні питання "Правда чи хибно" (Так / Ні) за тезами теми (до 4 шт.)
+    const pointsToUse = [...curPoints, ...poolPoints];
+    for (let i = 0; i < pointsToUse.length; i++) {
+      if (questions.filter(q => q.id.startsWith('q_tf_')).length >= 4 || questions.length >= TARGET_COUNT) break;
+      const pt = pointsToUse[i];
+      let statement = shortText(pt, 65);
+      const isTrue = (i % 3 !== 2);
+      let qTitle;
+
+      if (isTrue) {
+        qTitle = `Чи правильне твердження: «${statement}»?`;
+        if (usedTitles.has(qTitle)) continue;
+        usedTitles.add(qTitle);
         questions.push({
-          id: 'point_verify',
-          title: `Чи правильне наступне твердження згідно з конспектом: «${p2}»?`,
-          options: opts2,
+          id: `q_tf_${questions.length + 1}`,
+          title: qTitle,
+          options: ['Так, правильно', 'Ні, це помилка'],
           correctIndex: 0,
-          explanation: `Це твердження повністю правильне. У конспекті сторінки зафіксовано: «${p2}».`
+          explanation: `Це твердження повністю правильне: «${pt}».`
+        });
+      } else {
+        qTitle = `«${statement}» — чи це твердження помилкове?`;
+        if (usedTitles.has(qTitle)) continue;
+        usedTitles.add(qTitle);
+        questions.push({
+          id: `q_tf_${questions.length + 1}`,
+          title: qTitle,
+          options: ['Ні, твердження є вірним', 'Так, воно помилкове'],
+          correctIndex: 0,
+          explanation: `Це твердження насправді є вірним: «${pt}».`
         });
       }
     }
 
-    // Запитання 3: За формулами (якщо є)
-    if (Array.isArray(theses.formulas) && theses.formulas.length) {
-      const f1 = theses.formulas[0];
-      const distFormulas = [];
-      const shuffledF = shuffle(poolFormulas);
-      for (const f of shuffledF) {
-        if (distFormulas.length >= 3) break;
-        if (f !== f1 && !distFormulas.includes(f)) distFormulas.push(f);
+    // 3. Формули (до 2 шт.)
+    const formulasToUse = [...curFormulas, ...poolFormulas];
+    for (const f of formulasToUse) {
+      if (questions.filter(q => q.id.startsWith('q_form_')).length >= 2 || questions.length >= TARGET_COUNT) break;
+      const qTitle = 'Яка формула стосується цієї теми?';
+      if (usedTitles.has(qTitle)) continue;
+      const dists = [];
+      for (const otherF of shuffle(poolFormulas)) {
+        if (dists.length >= 3) break;
+        if (otherF !== f && !dists.includes(otherF)) dists.push(otherF);
       }
-      while (distFormulas.length < 3) {
-        distFormulas.push(`X = Y · ${distFormulas.length + 2}`);
-      }
-      const opts = shuffle([f1, ...distFormulas.slice(0, 3)]);
+      while (dists.length < 3) dists.push(`x = y · ${dists.length + 2}`);
+      const opts = shuffle([f, ...dists.slice(0, 3)]);
+      usedTitles.add(qTitle);
       questions.push({
-        id: 'formula_1',
-        title: 'Яка формула є ключовою на цій сторінці?',
+        id: `q_form_${questions.length + 1}`,
+        title: qTitle,
         options: opts,
-        correctIndex: opts.indexOf(f1),
-        explanation: `Ключова формула поточної сторінки: ${f1}.`
+        correctIndex: opts.indexOf(f),
+        explanation: `Формула теми: ${f}.`
       });
     }
 
-    return questions.slice(0, 3); // Оптимально 2-3 якісних запитання на сторінку
+    // 4. Питання типу "Термін → Визначення" (лаконічне пояснення, до 3 шт.)
+    for (const item of termsToUse) {
+      if (questions.filter(q => q.id.startsWith('q_def_')).length >= 3 || questions.length >= TARGET_COUNT) break;
+      const qTitle = `«${item.term}» — це:`;
+      if (usedTitles.has(qTitle)) continue;
+
+      const correctDef = shortText(item.def, 45);
+      const dists = [];
+      for (const other of shuffle(poolTerms)) {
+        if (dists.length >= 3) break;
+        const d = shortText(other.def, 45);
+        if (d !== correctDef && !dists.includes(d)) dists.push(d);
+      }
+      while (dists.length < 3) dists.push(`Параметр стану системи №${dists.length + 1}`);
+
+      const opts = shuffle([correctDef, ...dists.slice(0, 3)]);
+      usedTitles.add(qTitle);
+      questions.push({
+        id: `q_def_${questions.length + 1}`,
+        title: qTitle,
+        options: opts,
+        correctIndex: opts.indexOf(correctDef),
+        explanation: `Згідно з темою: «${item.term}» — це ${item.def}.`
+      });
+    }
+
+    // 5. Питання на вибір ключової тези до заповнення 12
+    for (const pt of pointsToUse) {
+      if (questions.length >= TARGET_COUNT) break;
+      const qTitle = 'Оберіть правильний факт з теми:';
+      const correctOpt = shortText(pt, 50);
+      const dists = [];
+      for (const other of shuffle(poolPoints)) {
+        if (dists.length >= 3) break;
+        const d = shortText(other, 50);
+        if (d !== correctOpt && !dists.includes(d)) dists.push(d);
+      }
+      while (dists.length < 3) dists.push(`Не стосується даного розділу`);
+      const opts = shuffle([correctOpt, ...dists.slice(0, 3)]);
+
+      questions.push({
+        id: `q_fact_${questions.length + 1}`,
+        title: qTitle,
+        options: opts,
+        correctIndex: opts.indexOf(correctOpt),
+        explanation: `Правильне твердження: «${pt}».`
+      });
+    }
+
+    // Гарантуємо рівно 12 запитань
+    return questions.slice(0, TARGET_COUNT);
   }
 
   class QuizEngine {

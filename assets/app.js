@@ -246,9 +246,9 @@
       if (t.title) html += `<h2>${esc(t.title)}</h2>`;
       if (window.Quiz && window.Quiz.hasQuestions(t)) {
         html += `<div class="quiz-launch-bar">
-          <button class="btn-quiz-launch" id="btn-quiz-launch" type="button" aria-label="Пройти тест до матеріалу сторінки">
-            <span class="quiz-launch-badge">⚡ ТЕСТ</span>
-            <span class="quiz-launch-text">Перевірити знання сторінки</span>
+          <button class="btn-quiz-launch" id="btn-quiz-launch" type="button" aria-label="Пройти тест на 12 питань до сторінки">
+            <span class="quiz-launch-badge">⚡ ТЕСТ · 12 пит.</span>
+            <span class="quiz-launch-text">Перевірити знання теми</span>
             <span class="quiz-launch-arr">→</span>
           </button>
         </div>`;
@@ -260,8 +260,8 @@
       if (window.Quiz && window.Quiz.hasQuestions(t)) {
         html += `<div class="quiz-bottom-prompt">
           <p>Закріплення теми</p>
-          <button class="btn-quiz-launch" id="btn-quiz-bottom" type="button" aria-label="Пройти тест до матеріалу сторінки">
-            <span class="quiz-launch-badge">🎯 ТЕСТ</span>
+          <button class="btn-quiz-launch" id="btn-quiz-bottom" type="button" aria-label="Пройти тест на 12 питань до сторінки">
+            <span class="quiz-launch-badge">🎯 ТЕСТ · 12 пит.</span>
             <span class="quiz-launch-text">Перевірити засвоєння матеріалу</span>
             <span class="quiz-launch-arr">→</span>
           </button>
