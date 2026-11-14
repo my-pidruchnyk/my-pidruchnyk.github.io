@@ -57,254 +57,7 @@
   };
   const num = n => n.toLocaleString('uk-UA');
 
-  // SR/KR modal
-  const ROMAN = ['І','ІІ','ІІІ','IV','V','VI'];
-
-  function showWorkModal(type) {
-    if (document.getElementById('work-modal')) return;
-    const subjects = state.books ? state.books.subjects : [];
-    const modal = document.createElement('div');
-    modal.id = 'work-modal';
-    modal.className = 'auth-modal-overlay';
-    document.body.appendChild(modal);
-
-    const subjectOptions = subjects.map(s => `<option value="${s.slug}">${s.subject}</option>`).join('');
-    const rangeHtml = type === 'sr'
-      ? `<div class="pdf-cfg-group"><label>Параграф:<select id="wm-pf"></select></label></div>`
-      : `<div class="pdf-cfg-group wm-range-row">
-           <label>З параграфа:<select id="wm-pf"></select></label>
-           <label>По параграф:<select id="wm-pt"></select></label>
-         </div>`;
-
-    modal.innerHTML = `
-      <div class="auth-modal-backdrop" id="wm-bd"></div>
-      <div class="auth-modal-box wm-box" role="dialog" aria-modal="true">
-        <header class="auth-modal-head">
-          <h3 class="auth-modal-title">${type==='sr'?'📝 Самостійні роботи (СР)':'📊 Контрольні роботи (КР)'}</h3>
-          <button class="auth-modal-close" id="wm-close">✕</button>
-        </header>
-        <div class="auth-modal-body">
-          <div class="pdf-cfg-group"><label>Предмет:<select id="wm-subj">${subjectOptions}</select></label></div>
-          <div class="pdf-cfg-group">
-            <label>Кількість варіантів:
-              <div class="wm-variant-btns" id="wm-vbtns">
-                ${ROMAN.map((r,i)=>`<button type="button" class="wm-vbtn${i===0?' active':''}" data-v="${i+1}">Варіант ${r}</button>`).join('')}
-              </div>
-            </label>
-          </div>
-          ${rangeHtml}
-          <div class="wm-sliders">
-            <div class="wm-slider-row">
-              <span class="wm-sl-label">Класичні тести</span>
-              <input type="range" id="sl-tests" min="0" max="100" value="70">
-              <span class="wm-sl-val" id="sv-tests">70%</span>
-            </div>
-            <div class="wm-slider-row">
-              <span class="wm-sl-label">Відповідність (1-А…)</span>
-              <input type="range" id="sl-match" min="0" max="100" value="20">
-              <span class="wm-sl-val" id="sv-match">20%</span>
-            </div>
-            <div class="wm-slider-row">
-              <span class="wm-sl-label">Відкриті короткі</span>
-              <input type="range" id="sl-open" min="0" max="100" value="10">
-              <span class="wm-sl-val" id="sv-open">10%</span>
-            </div>
-            <div class="wm-slider-sum" id="wm-sum">Разом: 100%</div>
-          </div>
-          <div class="wm-hint">${type==='sr'
-            ? '8–10 питань на варіант · один параграф'
-            : '12 питань на варіант · діапазон параграфів'}</div>
-          <button type="button" class="auth-submit-btn" id="wm-gen">⚡ Згенерувати</button>
-          <div id="wm-preview"></div>
-        </div>
-      </div>`;
-
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('auth-modal-open');
-
-    // --- close ---
-    const close = () => { modal.remove(); document.body.classList.remove('auth-modal-open'); };
-    document.getElementById('wm-close').addEventListener('click', close);
-    document.getElementById('wm-bd').addEventListener('click', close);
-
-    // --- variant count buttons ---
-    let variantCount = 1;
-    document.getElementById('wm-vbtns').addEventListener('click', e => {
-      const btn = e.target.closest('.wm-vbtn');
-      if (!btn) return;
-      variantCount = +btn.dataset.v;
-      document.querySelectorAll('.wm-vbtn').forEach(b => b.classList.toggle('active', b===btn));
-    });
-
-    // --- linked sliders (sum = 100) ---
-    const sliders = [
-      { el: document.getElementById('sl-tests'), val: document.getElementById('sv-tests') },
-      { el: document.getElementById('sl-match'), val: document.getElementById('sv-match') },
-      { el: document.getElementById('sl-open'),  val: document.getElementById('sv-open')  },
-    ];
-    const sumEl = document.getElementById('wm-sum');
-    sliders.forEach((s, idx) => {
-      s.el.addEventListener('input', () => {
-        let v = +s.el.value;
-        const others = sliders.filter((_,i) => i!==idx);
-        const otherSum = others.reduce((a,o)=>a + +o.el.value, 0);
-        if (v + otherSum > 100) {
-          const excess = v + otherSum - 100;
-          // distribute excess from others proportionally
-          let left = excess;
-          for (const o of others) {
-            const cut = Math.min(+o.el.value, left);
-            o.el.value = +o.el.value - cut;
-            o.val.textContent = o.el.value + '%';
-            left -= cut;
-            if (!left) break;
-          }
-        }
-        const total = sliders.reduce((a,o)=>a + +o.el.value, 0);
-        sumEl.textContent = `Разом: ${total}%`;
-        sumEl.style.color = total===100 ? '' : '#ff4d4d';
-        s.val.textContent = v + '%';
-      });
-    });
-
-    // --- load paragraphs ---
-    const pfSel = document.getElementById('wm-pf');
-    const ptSel = document.getElementById('wm-pt');
-    const subjSel = document.getElementById('wm-subj');
-
-    async function loadParagraphs(slug) {
-      pfSel.innerHTML = '';
-      if (ptSel) ptSel.innerHTML = '';
-      try {
-        const data = await (await fetch(`books/${slug}/theses.json`)).json();
-        const pages = data.pages || {};
-        const nums = [...new Set(Object.values(pages)
-          .map(t => { const m = t.title&&t.title.match(/§\s*(\d+)/); return m?+m[1]:null; })
-          .filter(Boolean))].sort((a,b)=>a-b);
-        if (nums.length) {
-          nums.forEach(n => {
-            pfSel.add(new Option(`§ ${n}`, n));
-            if (ptSel) ptSel.add(new Option(`§ ${n}`, n));
-          });
-          if (ptSel) ptSel.value = Math.min(nums[0]+4, nums[nums.length-1]);
-        } else {
-          const pc = state.books.subjects.find(s=>s.slug===slug)?.pages||200;
-          for (let i=1;i<=pc;i+=20) {
-            const end=Math.min(i+19,pc);
-            pfSel.add(new Option(`с. ${i}`, i));
-            if (ptSel) ptSel.add(new Option(`с. ${end}`, end));
-          }
-          if (ptSel) ptSel.value = Math.min(60,pc);
-        }
-      } catch {
-        pfSel.add(new Option('—', 1));
-      }
-    }
-    subjSel.addEventListener('change', () => loadParagraphs(subjSel.value));
-    loadParagraphs(subjSel.value);
-
-    // --- generate ---
-    document.getElementById('wm-gen').addEventListener('click', async () => {
-      const btn = document.getElementById('wm-gen');
-      btn.disabled = true;
-      btn.textContent = 'Генерую…';
-      const slug = subjSel.value;
-      const book = state.books.subjects.find(s=>s.slug===slug);
-      const pFrom = +pfSel.value;
-      const pTo = ptSel ? +ptSel.value : pFrom;
-      let allTheses = {};
-      try { allTheses = (await (await fetch(`books/${slug}/theses.json`)).json()).pages || {}; } catch {}
-
-      const generated = [];
-      for (let v=1; v<=variantCount; v++) {
-        let qs;
-        if (type==='sr') {
-          // 8-10 questions, single paragraph
-          const full = window.Quiz.genForRange(book, pFrom, pFrom, allTheses);
-          const cnt = 8 + Math.floor(Math.random()*3);
-          qs = full.slice(0, Math.min(cnt, full.length));
-        } else {
-          // exactly 12 questions, range
-          qs = window.Quiz.genForRange(book, pFrom, pTo, allTheses);
-        }
-        generated.push({ label: `Варіант ${ROMAN[v-1]}`, questions: qs, pFrom, pTo });
-      }
-
-      btn.disabled = false;
-      btn.textContent = '⚡ Згенерувати';
-
-      // render preview
-      const preview = document.getElementById('wm-preview');
-      const tabs = generated.map((v,i) =>
-        `<button class="wm-tab${i===0?' active':''}" data-vi="${i}">${v.label}</button>`).join('');
-      const panels = generated.map((v,i) => {
-        const qList = v.questions.map((q,qi) =>
-          `<li class="wm-q"><span class="wm-qn">${qi+1}.</span> ${q.title}</li>`).join('');
-        return `<div class="wm-panel${i===0?'':' hidden'}" data-vi="${i}">
-          <ul class="wm-qlist">${qList}</ul>
-          <div class="wm-panel-btns">
-            <button class="wm-btn-quiz auth-submit-btn" data-vi="${i}">▶ Пройти цей варіант інтерактивно</button>
-            <button class="wm-btn-pdf" data-vi="${i}">📄 Завантажити PDF</button>
-          </div>
-        </div>`;
-      }).join('');
-
-      preview.innerHTML = `<div class="wm-tabs">${tabs}</div><div class="wm-panels">${panels}</div>`;
-
-      // tab switching
-      preview.querySelectorAll('.wm-tab').forEach(t => {
-        t.addEventListener('click', () => {
-          preview.querySelectorAll('.wm-tab').forEach(x=>x.classList.remove('active'));
-          preview.querySelectorAll('.wm-panel').forEach(x=>x.classList.add('hidden'));
-          t.classList.add('active');
-          preview.querySelector(`.wm-panel[data-vi="${t.dataset.vi}"]`).classList.remove('hidden');
-        });
-      });
-
-      // quiz buttons
-      preview.querySelectorAll('.wm-btn-quiz').forEach(b => {
-        b.addEventListener('click', () => {
-          const v = generated[+b.dataset.vi];
-          if (type==='sr') window.Quiz.openSingleParagraphQuiz({book, paragraphFrom:v.pFrom, paragraphTo:v.pFrom, allTheses, rangeLabel:`§ ${v.pFrom}`});
-          else window.Quiz.openRangeQuiz({book, paragraphFrom:v.pFrom, paragraphTo:v.pTo, allTheses, rangeLabel:`§ ${v.pFrom} – § ${v.pTo}`});
-        });
-      });
-
-      // pdf buttons
-      preview.querySelectorAll('.wm-btn-pdf').forEach(b => {
-        b.addEventListener('click', () => {
-          const v = generated[+b.dataset.vi];
-          if (window.PdfExport) {
-            window.PdfExport.openExportDialog({
-              subject: book?.subject||'Підручник',
-              title: `${type==='sr'?'СР':'КР'} – ${v.label}`,
-              grade: '8 клас',
-              questions: v.questions,
-              includeAnswers: !!window.isTeacher?.()
-            });
-          }
-        });
-      });
-    });
-  }
-
-  // Replace hub‑card click handler to open our modals
-  function initHubHandlers(){
-    document.querySelectorAll('.cy-hub-card').forEach(card=>{
-      const hub = card.dataset.hub;
-      if(hub==='sr') card.addEventListener('click',()=>showWorkModal('sr'));
-      else if(hub==='kr') card.addEventListener('click',()=>showWorkModal('kr'));
-      else card.addEventListener('click',()=>window.TeacherAuth?.openHubModal(hub));
-    });
-  }
-
-  // Call after renderHome
-  const originalRenderHome = renderHome;
-  function renderHome(){
-    originalRenderHome();
-    initHubHandlers();
-  }
-
+  function renderHome() {
     document.title = 'Підручники 8 клас';
     const all = state.books.subjects;
     const groups = new Map();
@@ -362,7 +115,7 @@
               <button type="button" class="cy-hub-card" data-hub="sr" style="--hub-c: #7dff4d;">
                 <div class="cy-hub-head">
                   <span class="cy-hub-ico" aria-hidden="true">📝</span>
-                  <span class="cy-hub-badge active">Активно</span>
+                  <span class="cy-hub-badge soon">Заглушка</span>
                 </div>
                 <h4 class="cy-hub-title">Самостійні роботи (СР)</h4>
                 <p class="cy-hub-desc">Тренувальні та діагностичні завдання за темами програми</p>
@@ -375,7 +128,7 @@
               <button type="button" class="cy-hub-card" data-hub="kr" style="--hub-c: #ff2bd6;">
                 <div class="cy-hub-head">
                   <span class="cy-hub-ico" aria-hidden="true">📊</span>
-                  <span class="cy-hub-badge active">Активно</span>
+                  <span class="cy-hub-badge soon">Заглушка</span>
                 </div>
                 <h4 class="cy-hub-title">Контрольні роботи (КР)</h4>
                 <p class="cy-hub-desc">Тематичні та семестрові зрізи знань для оцінювання</p>
@@ -388,7 +141,7 @@
               <button type="button" class="cy-hub-card" data-hub="exams" style="--hub-c: #ffe14d;">
                 <div class="cy-hub-head">
                   <span class="cy-hub-ico" aria-hidden="true">🎓</span>
-                  <span class="cy-hub-badge active">Активно</span>
+                  <span class="cy-hub-badge soon">Заглушка</span>
                 </div>
                 <h4 class="cy-hub-title">Екзамени</h4>
                 <p class="cy-hub-desc">Підсумкова річна атестація та комплексні зрізи</p>
@@ -423,8 +176,8 @@
       el.addEventListener('click', () => openBook(el.dataset.slug)));
     document.getElementById('to-list')?.addEventListener('click', () => document.getElementById('list').scrollIntoView({ behavior: 'smooth' }));
     document.getElementById('btn-teacher-top')?.addEventListener('click', () => window.TeacherAuth?.openAuthModal());
-    // hub handlers overridden by initHubHandlers
-//      card.addEventListener('click', () => window.TeacherAuth?.openHubModal(card.dataset.hub));
+    app.querySelectorAll('.cy-hub-card').forEach(card => {
+      card.addEventListener('click', () => window.TeacherAuth?.openHubModal(card.dataset.hub));
     });
   }
 
