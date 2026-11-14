@@ -57,7 +57,207 @@
   };
   const num = n => n.toLocaleString('uk-UA');
 
-  function renderHome() {
+  // Add SR/KR modal handling
+  function showWorkModal(type) {
+    // type: 'sr' or 'kr'
+    const subjects = state.books ? state.books.subjects : [];
+    const modal = document.createElement('div');
+    modal.id = 'work-modal';
+    modal.className = 'auth-modal-overlay';
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(modal);
+
+    const subjectOptions = subjects.map(s => `<option value="${s.slug}">${s.subject} (${s.group})</option>`).join('');
+    const variantOptions = Array.from({length:6},(_,i)=>`<option value="${i+1}">Варіант ${i+1}</option>`).join('');
+    const taskSliders = `
+      <div class="task-slider">
+        <label>Класичні тесты (%): <input type="range" min="0" max="100" value="70" id="slider-tests"></label>
+      </div>
+      <div class="task-slider">
+        <label>Відповідність (%): <input type="range" min="0" max="100" value="20" id="slider-match"></label>
+      </div>
+      <div class="task-slider">
+        <label>Відкриті короткі (%): <input type="range" min="0" max="100" value="10" id="slider-open"></label>
+      </div>`;
+
+    // Content differs for SR and KR
+    const rangeContent = type === 'sr' ? `
+      <label>Параграф: <select id="sr-paragraph"></select></label>`
+      : `
+      <label>З параграфа: <select id="kr-from"></select></label>
+      <label>По параграф: <select id="kr-to"></select></label>`;
+
+    modal.innerHTML = `
+      <div class="auth-modal-backdrop" id="wm-backdrop"></div>
+      <div class="auth-modal-box" role="dialog" aria-modal="true">
+        <header class="auth-modal-head">
+          <h3 class="auth-modal-title">${type === 'sr' ? 'Самостійні роботи' : 'Контрольні роботи'}</h3>
+          <button type="button" class="auth-modal-close" id="wm-close" aria-label="Закрити">✕</button>
+        </header>
+        <div class="auth-modal-body">
+          <div class="pdf-cfg-group"><label>Предмет: <select id="wm-subject">${subjectOptions}</select></label></div>
+          <div class="pdf-cfg-group"><label>Кількість варіантів: <select id="wm-variants">${variantOptions}</select></label></div>
+          ${rangeContent}
+          ${taskSliders}
+          <button type="button" class="auth-submit-btn" id="wm-generate">Згенерувати</button>
+          <div id="wm-preview" class="wm-preview"></div>
+        </div>
+      </div>`;
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('auth-modal-open');
+
+    const close = () => { modal.setAttribute('aria-hidden', 'true'); modal.innerHTML = ''; document.body.classList.remove('auth-modal-open'); modal.remove(); };
+    document.getElementById('wm-close')?.addEventListener('click', close);
+    document.getElementById('wm-backdrop')?.addEventListener('click', close);
+
+    const subjSelect = document.getElementById('wm-subject');
+    const variantSelect = document.getElementById('wm-variants');
+    const paragraphFrom = document.getElementById('sr-paragraph') || document.getElementById('kr-from');
+    const paragraphTo = document.getElementById('kr-to');
+    const generateBtn = document.getElementById('wm-generate');
+
+    // Load paragraphs for selected subject (reuse logic from test‑center)
+    async function loadParagraphs(slug) {
+      const res = await fetch(`books/${slug}/theses.json`);
+      const data = await res.json();
+      const pages = data.pages || {};
+      const pNums = [];
+      for (const t of Object.values(pages)) {
+        const m = t.title && t.title.match(/§\s*(\d+)/);
+        if (m) pNums.push(+m[1]);
+      }
+      // Fill selects
+      if (type === 'sr') {
+        paragraphFrom.innerHTML = '';
+        if (pNums.length) {
+          const min = Math.min(...pNums), max = Math.max(...pNums);
+          for (let i = min; i <= max; i++) paragraphFrom.add(new Option(`§ ${i}`, i));
+        } else {
+          const pagesCount = state.books.subjects.find(s=>s.slug===slug)?.pages||200;
+          for (let i=1;i<=pagesCount;i++) paragraphFrom.add(new Option(`§ ${i}`, i));
+        }
+      } else { // KR
+        const from = document.getElementById('kr-from');
+        const to = document.getElementById('kr-to');
+        from.innerHTML = '';
+        to.innerHTML = '';
+        if (pNums.length) {
+          const min = Math.min(...pNums), max = Math.max(...pNums);
+          for (let i=min;i<=max;i++) {
+            from.add(new Option(`§ ${i}`, i));
+            to.add(new Option(`§ ${i}`, i));
+          }
+          from.value = min;
+          to.value = Math.min(min+4, max);
+        } else {
+          const pagesCount = state.books.subjects.find(s=>s.slug===slug)?.pages||200;
+          const step=20;
+          for (let p=1;p<=pagesCount;p+=step){
+            const end=Math.min(p+step-1,pagesCount);
+            from.add(new Option(`§ ${p}`, p));
+            to.add(new Option(`§ ${end}`, end));
+          }
+          to.value = Math.min(60, pagesCount);
+        }
+      }
+    }
+    subjSelect.addEventListener('change',()=>loadParagraphs(subjSelect.value));
+    loadParagraphs(subjSelect.value);
+
+    generateBtn.addEventListener('click', async () => {
+      const variantCount = +variantSelect.value;
+      const from = +paragraphFrom.value;
+      const to = type==='sr'? from : +paragraphTo.value;
+      const bookSlug = subjSelect.value;
+      const book = state.books.subjects.find(s=>s.slug===bookSlug);
+      const res = await fetch(`books/${bookSlug}/theses.json`);
+      const allTheses = (await res.json()).pages || {};
+      const generated = [];
+      for (let v=1; v<=variantCount; v++) {
+        const label = `Варіант ${v}`;
+        const qs = type==='sr'
+          ? window.Quiz.openSingleParagraphQuiz({book, paragraphFrom: from, paragraphTo: from, allTheses, rangeLabel: `§ ${from}`})
+          : window.Quiz.openRangeQuiz({book, paragraphFrom: from, paragraphTo: to, allTheses, rangeLabel: `§ ${from} – § ${to}`});
+        // The above opens UI; we instead just generate questions directly
+        const qsData = window.Quiz.generateQuestionsForRange(book, from, to, allTheses);
+        generated.push({label, questions: qsData});
+      }
+      // Render preview
+      const preview = document.getElementById('wm-preview');
+      preview.innerHTML = '';
+      const tabs = document.createElement('div');
+      tabs.className = 'variant-tabs';
+      const content = document.createElement('div');
+      content.className = 'variant-content';
+      generated.forEach((v,i)=>{
+        const tab = document.createElement('button');
+        tab.textContent = v.label;
+        tab.className = i===0?'active':'';
+        tab.addEventListener('click',()=>{setActive(i);});
+        tabs.appendChild(tab);
+        const div = document.createElement('div');
+        div.className = 'variant-panel';
+        if(i!==0) div.style.display='none';
+        // simple list of titles
+        const ul = document.createElement('ul');
+        v.questions.forEach(q=>{ const li=document.createElement('li'); li.textContent = q.title; ul.appendChild(li);});
+        div.appendChild(ul);
+        // buttons
+        const btnQuiz = document.createElement('button');
+        btnQuiz.textContent = 'Пройти цей варіант інтерактивно';
+        btnQuiz.addEventListener('click',()=>{
+          // open quiz with this variant
+          if(type==='sr') window.Quiz.openSingleParagraphQuiz({book, paragraphFrom: from, paragraphTo: from, allTheses, rangeLabel: `§ ${from}`});
+          else window.Quiz.openRangeQuiz({book, paragraphFrom: from, paragraphTo: to, allTheses, rangeLabel: `§ ${from} – § ${to}`});
+        });
+        const btnPdf = document.createElement('button');
+        btnPdf.textContent = 'Завантажити PDF';
+        btnPdf.addEventListener('click',()=>{
+          const isTeacher = !!window.isTeacher?.();
+          window.PdfExport.openExportDialog({
+            subject: book?.subject || 'Підручник',
+            title: `${type.toUpperCase()} – ${v.label}`,
+            grade: '8 клас',
+            questions: v.questions,
+            layout: 'byVariant',
+            includeAnswers: isTeacher,
+            variantMode: true,
+            variantLabel: v.label
+          });
+        });
+        div.appendChild(btnQuiz);
+        div.appendChild(btnPdf);
+        content.appendChild(div);
+      });
+      preview.appendChild(tabs);
+      preview.appendChild(content);
+
+      function setActive(idx){
+        const tabsBtn = tabs.querySelectorAll('button');
+        const panels = content.querySelectorAll('.variant-panel');
+        tabsBtn.forEach((b,i)=>{b.className = i===idx?'active':'';});
+        panels.forEach((p,i)=>{p.style.display = i===idx?'block':'none';});
+      }
+    });
+  }
+
+  // Replace hub‑card click handler to open our modals
+  function initHubHandlers(){
+    document.querySelectorAll('.cy-hub-card').forEach(card=>{
+      const hub = card.dataset.hub;
+      if(hub==='sr') card.addEventListener('click',()=>showWorkModal('sr'));
+      else if(hub==='kr') card.addEventListener('click',()=>showWorkModal('kr'));
+      else card.addEventListener('click',()=>window.TeacherAuth?.openHubModal(hub));
+    });
+  }
+
+  // Call after renderHome
+  const originalRenderHome = renderHome;
+  function renderHome(){
+    originalRenderHome();
+    initHubHandlers();
+  }
+
     document.title = 'Підручники 8 клас';
     const all = state.books.subjects;
     const groups = new Map();
