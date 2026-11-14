@@ -401,6 +401,24 @@
       this.applyFontScale();
     }
 
+    /* Відкриття тесту з готовими питаннями (для СР/КР preview) */
+    openWithQuestions({ book, questions, rangeLabel }) {
+      this.book = book;
+      this.page = 1;
+      this.pageLabel = rangeLabel || '';
+      this.theses = null;
+      this.allTheses = null;
+      this.onNextPage = null;
+      this.questions = questions;
+      this.answers = new Array(questions.length).fill(null);
+      this.isSubmitted = false;
+      this.active = true;
+      document.body.classList.add('quiz-open');
+      this.el.setAttribute('aria-hidden', 'false');
+      this.render();
+      this.applyFontScale();
+    }
+
     /* Відкриття тесту за діапазоном параграфів */
     openRangeQuiz({ book, paragraphFrom, paragraphTo, allTheses, rangeLabel }) {
       this.book = book;
@@ -900,4 +918,5 @@
   }
 
   window.Quiz = new QuizEngine();
+  window.Quiz.genForRange = generateQuestionsForRange;
 })();
