@@ -679,6 +679,69 @@ input {
   text-shadow: 0 0 10px var(--margin);
 }
 
+/* Кнопка тесту на полях зошита (прямо під номером сторінки) */
+.nb-margin-quiz {
+  position: absolute;
+  left: 7px;
+  top: 104px;
+  width: 42px;
+  min-height: 54px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 2px;
+  border-radius: 10px;
+  background: rgb(15 12 32 / .92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--n, #00f0ff) 65%, transparent);
+  color: var(--n, #00f0ff);
+  cursor: pointer;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--n, #00f0ff) 25%, transparent);
+  transition: all .2s ease;
+}
+
+.nb-margin-quiz:hover {
+  background: color-mix(in srgb, var(--n, #00f0ff) 22%, #07060f);
+  border-color: var(--n, #00f0ff);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--n, #00f0ff) 75%, transparent);
+  transform: translateY(-2px) scale(1.05);
+}
+
+.nb-margin-quiz:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.nb-mq-ico {
+  font-size: 16px;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px var(--n, #00f0ff));
+  animation: pulse-glow 2.5s infinite ease-in-out;
+}
+
+.nb-mq-txt {
+  font: 800 8.5px/1 var(--f-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.nb-mq-cnt {
+  font: 700 8.5px/1 var(--f-mono);
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--n, #00f0ff) 24%, transparent);
+  color: var(--n, #00f0ff);
+}
+
+@keyframes pulse-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--n, #00f0ff)); opacity: 0.9; }
+  50% { filter: drop-shadow(0 0 10px var(--n, #00f0ff)); opacity: 1; }
+}
+
 .nb-kind {
   display: inline-block;
   font: 700 11px/1 var(--f-mono);
