@@ -80,12 +80,79 @@
           <h2>Привіт! Обери <span>предмет</span><i class="cy-cur" aria-hidden="true"></i></h2>
           <p>Ліворуч сторінка підручника, праворуч короткі тези саме цієї сторінки.</p></div>
         <button class="cy-go" id="to-list">До предметів ↓</button>`;
+    const isTeacher = !!window.isTeacher?.();
     app.innerHTML = `
       <main class="cy">
         <div class="cy-sky" aria-hidden="true"></div><div class="cy-floor" aria-hidden="true"></div>
         <div class="cy-wrap">
-          <header class="cy-top"><h1>Підручники</h1><span class="cy-lv">${state.books.grade} клас</span><span class="cy-me" aria-hidden="true">${state.books.grade}</span></header>
+          <header class="cy-top">
+            <h1>Підручники</h1>
+            <span class="cy-lv">${state.books.grade} клас</span>
+            <button class="cy-teacher-btn ${isTeacher ? 'authorized' : ''}" id="btn-teacher-top" type="button" title="${isTeacher ? 'Кабінет вчителя (авторизовано)' : 'Вхід для вчителя'}">
+              <span class="t-ico" aria-hidden="true">👩‍🏫</span>
+              <span class="t-txt">${isTeacher ? 'Вчитель ✓' : 'Вхід для вчителя'}</span>
+            </button>
+            <span class="cy-me" aria-hidden="true">${state.books.grade}</span>
+          </header>
           <section class="cy-hello">${hello}</section>
+          
+          <!-- 4 ключові розділи контролю знань (хаби) -->
+          <section class="cy-hubs" aria-label="Розділи оцінювання та контролю знань">
+            <div class="cy-hubs-grid">
+              <button type="button" class="cy-hub-card active" data-hub="tests" style="--hub-c: #00f0ff;">
+                <div class="cy-hub-head">
+                  <span class="cy-hub-ico" aria-hidden="true">⚡</span>
+                  <span class="cy-hub-badge ready">Активно</span>
+                </div>
+                <h4 class="cy-hub-title">Тести</h4>
+                <p class="cy-hub-desc">12 інтерактивних запитань до кожної сторінки конспекту</p>
+                <div class="cy-hub-foot">
+                  <span>18 предметів</span>
+                  <span class="cy-arr" aria-hidden="true">→</span>
+                </div>
+              </button>
+
+              <button type="button" class="cy-hub-card" data-hub="sr" style="--hub-c: #7dff4d;">
+                <div class="cy-hub-head">
+                  <span class="cy-hub-ico" aria-hidden="true">📝</span>
+                  <span class="cy-hub-badge soon">Заглушка</span>
+                </div>
+                <h4 class="cy-hub-title">Самостійні роботи (СР)</h4>
+                <p class="cy-hub-desc">Тренувальні та діагностичні завдання за темами програми</p>
+                <div class="cy-hub-foot">
+                  <span>Завдання та PDF</span>
+                  <span class="cy-arr" aria-hidden="true">→</span>
+                </div>
+              </button>
+
+              <button type="button" class="cy-hub-card" data-hub="kr" style="--hub-c: #ff2bd6;">
+                <div class="cy-hub-head">
+                  <span class="cy-hub-ico" aria-hidden="true">📊</span>
+                  <span class="cy-hub-badge soon">Заглушка</span>
+                </div>
+                <h4 class="cy-hub-title">Контрольні роботи (КР)</h4>
+                <p class="cy-hub-desc">Тематичні та семестрові зрізи знань для оцінювання</p>
+                <div class="cy-hub-foot">
+                  <span>Оцінювання</span>
+                  <span class="cy-arr" aria-hidden="true">→</span>
+                </div>
+              </button>
+
+              <button type="button" class="cy-hub-card" data-hub="exams" style="--hub-c: #ffe14d;">
+                <div class="cy-hub-head">
+                  <span class="cy-hub-ico" aria-hidden="true">🎓</span>
+                  <span class="cy-hub-badge soon">Заглушка</span>
+                </div>
+                <h4 class="cy-hub-title">Екзамени</h4>
+                <p class="cy-hub-desc">Підсумкова річна атестація та комплексні зрізи</p>
+                <div class="cy-hub-foot">
+                  <span>Підсумкові зрізи</span>
+                  <span class="cy-arr" aria-hidden="true">→</span>
+                </div>
+              </button>
+            </div>
+          </section>
+
           ${[...groups].map(([g, list], i) => `
             <section class="cy-group" style="--n:${NEON[g] || '#00f0ff'}" aria-label="${esc(g)}"${i ? '' : ' id="list"'}>
               <h3>${esc(g)}</h3>
@@ -108,6 +175,10 @@
     app.querySelectorAll('.cy-card:not([disabled]), .cy-go[data-slug]').forEach(el =>
       el.addEventListener('click', () => openBook(el.dataset.slug)));
     document.getElementById('to-list')?.addEventListener('click', () => document.getElementById('list').scrollIntoView({ behavior: 'smooth' }));
+    document.getElementById('btn-teacher-top')?.addEventListener('click', () => window.TeacherAuth?.openAuthModal());
+    app.querySelectorAll('.cy-hub-card').forEach(card => {
+      card.addEventListener('click', () => window.TeacherAuth?.openHubModal(card.dataset.hub));
+    });
   }
 
   /* ---------- Читалка ---------- */
@@ -122,6 +193,7 @@
 
   function renderReader() {
     const b = state.book;
+    const isTeacher = !!window.isTeacher?.();
     document.title = `${b.subject} · 8 клас`;
     app.innerHTML = `
       <div class="reader" style="--n:${NEON[b.group] || '#00f0ff'}">
@@ -129,6 +201,10 @@
         <header class="bar">
           <button class="back" id="back" title="До списку предметів">← Предмети</button>
           <div class="title"><span class="dot"></span><b>${esc(b.title || b.subject)}</b></div>
+          <button class="cy-teacher-btn compact ${isTeacher ? 'authorized' : ''}" id="btn-teacher-reader" type="button" title="${isTeacher ? 'Кабінет вчителя (авторизовано)' : 'Вхід для вчителя'}">
+            <span class="t-ico" aria-hidden="true">👩‍🏫</span>
+            <span class="t-txt">${isTeacher ? 'Вчитель ✓' : 'Вчитель'}</span>
+          </button>
           <nav class="pager" aria-label="Сторінки">
             <button id="prev" aria-label="Попередня сторінка">‹</button>
             <input id="pnum" type="text" inputmode="numeric" aria-label="Номер сторінки, як надруковано в підручнику">
@@ -151,6 +227,7 @@
       </div>`;
     const $ = id => document.getElementById(id);
     $('back').onclick = () => { go(); renderHome(); };
+    $('btn-teacher-reader')?.addEventListener('click', () => window.TeacherAuth?.openAuthModal());
     $('prev').onclick = $('hitl').onclick = () => turn(-1);
     $('next').onclick = $('hitr').onclick = () => turn(1);
     $('pnum').onchange = e => { const x = parseInt(e.target.value, 10); show(Number.isFinite(x) ? fromLabel(b, x) : state.page, 0); };
@@ -290,6 +367,14 @@
   });
 
   function route() {
+    const raw = location.hash.slice(1);
+    if (['tests', 'sr', 'kr', 'exams', 'hub-tests', 'hub-sr', 'hub-kr', 'hub-exams'].includes(raw)) {
+      state.book = null;
+      renderHome();
+      const k = raw.replace('hub-', '');
+      window.TeacherAuth?.openHubModal(k);
+      return;
+    }
     const h = parseHash();
     if (h) openBook(h.slug, h.page); else { state.book = null; renderHome(); }
   }
