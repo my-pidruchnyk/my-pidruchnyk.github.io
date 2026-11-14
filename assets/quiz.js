@@ -1,12 +1,10 @@
-/* Модуль тестування знань до сторінок підручника (Quiz).
-   Дозволяє учневі перевірити засвоєння конспекту в інтерактивному форматі:
-   - Відкриття за кнопкою без перешкод для читання
-   - Зміна масштабу шрифту (кнопки А− / А+)
-   - Вільна зміна відповідей до моменту підтвердження
-   - Вікно-попередження перед завершенням тесту
-   - Підсвічування правильних (зелений) та неправильних (червоний) відповідей
-   - Детальний розбір кожної помилки під неправильним варіантом
-   - Фінальний екран з переходом до наступної сторінки */
+/* Модуль тестування знань до сторінок підручника та Центру тестування (Quiz).
+   - Експрес-тести до сторінок конспекту
+   - Центр тестування з головного екрана: вибір предмета та діапазону параграфів
+   - Генерація рівно 12 запитань за обраними темами (по 4 варіанти в кожному)
+   - Повна підтримка доступності (А−/А+), вільної зміни відповідей та вікна підтвердження
+   - Детальний розбір помилок за конспектом
+   - Прямий експорт згенерованого тесту в PDF через модуль PdfExport */
 (() => {
   'use strict';
 
@@ -21,7 +19,6 @@
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
 
-  // Перемішування масиву без мутації оригіналу
   function shuffle(arr) {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -31,7 +28,6 @@
     return a;
   }
 
-  // Допоміжна функція для створення коротких, лаконічних формулювань
   function shortText(text, max = 68) {
     if (!text) return '';
     const clean = String(text).replace(/\s+/g, ' ').trim();
@@ -41,54 +37,12 @@
     return (lastSpace > 25 ? cut.slice(0, lastSpace) : cut) + '…';
   }
 
-  /* Генератор 12 лаконічних запитань з конспекту сторінки та теми */
-  function generateQuestions(theses, allTheses, pageNum) {
-    if (!theses) return [];
-
-    // Якщо в конспекті вже є 12 готових авторських тестів
-    if (Array.isArray(theses.tests) && theses.tests.length === 12) return theses.tests;
-
+  /* Універсальний конструктор рівно 12 лаконічних запитань (по 4 варіанти А, Б, В, Г) */
+  function build12Questions({ curTerms = [], curPoints = [], curFormulas = [], poolTerms = [], poolPoints = [], poolFormulas = [] }) {
     const TARGET_COUNT = 12;
     const questions = [];
     const usedTitles = new Set();
 
-    // Збираємо базу понять, тез і формул з поточної сторінки та всього підручника
-    const curTerms = Array.isArray(theses.terms) ? [...theses.terms] : [];
-    const curPoints = Array.isArray(theses.points) ? [...theses.points] : [];
-    const curFormulas = Array.isArray(theses.formulas) ? [...theses.formulas] : [];
-
-    const poolTerms = [];
-    const poolPoints = [];
-    const poolFormulas = [];
-
-    if (allTheses) {
-      // Спочатку сторінки поблизу (той самий параграф / розділ)
-      const curP = parseInt(pageNum, 10) || 1;
-      const pagesSorted = Object.keys(allTheses).map(n => parseInt(n, 10)).filter(Boolean)
-        .sort((a, b) => Math.abs(a - curP) - Math.abs(b - curP));
-
-      for (const p of pagesSorted) {
-        const t = allTheses[String(p)];
-        if (!t) continue;
-        if (Array.isArray(t.terms)) {
-          for (const item of t.terms) {
-            if (item.term && item.def) poolTerms.push(item);
-          }
-        }
-        if (Array.isArray(t.points)) {
-          for (const pt of t.points) {
-            if (pt && pt.length > 15) poolPoints.push(pt);
-          }
-        }
-        if (Array.isArray(t.formulas)) {
-          for (const f of t.formulas) {
-            if (f) poolFormulas.push(f);
-          }
-        }
-      }
-    }
-
-    // Резервні терміни та визначення, якщо в підручнику мало даних
     const fallbackTerms = [
       { term: 'Величина', def: 'кількісна характеристика властивості тіла або процесу' },
       { term: 'Процес', def: 'послідовна зміна станів об’єкта або системи' },
@@ -101,7 +55,7 @@
       if (poolTerms.length < 15) poolTerms.push(fb);
     }
 
-    // 1. Питання типу "Визначення → Термін" (короткі варіанти відповідей з 1-2 слів, до 4 шт.)
+    // 1. Питання типу "Визначення → Термін" (до 4 шт.)
     const termsToUse = [...curTerms, ...poolTerms];
     for (const item of termsToUse) {
       if (questions.filter(q => q.id.startsWith('q_term_')).length >= 4 || questions.length >= TARGET_COUNT) break;
@@ -129,7 +83,7 @@
       });
     }
 
-    // 2. Лаконічні питання за тезами теми (завжди 4 варіанти відповідей)
+    // 2. Лаконічні питання за тезами (до 4 шт., 4 варіанти)
     const pointsToUse = [...curPoints, ...poolPoints];
     for (let i = 0; i < pointsToUse.length; i++) {
       if (questions.filter(q => q.id.startsWith('q_tf_')).length >= 4 || questions.length >= TARGET_COUNT) break;
@@ -196,7 +150,7 @@
       });
     }
 
-    // 4. Питання типу "Термін → Визначення" (лаконічне пояснення, до 3 шт.)
+    // 4. Питання типу "Термін → Визначення" (до 3 шт.)
     for (const item of termsToUse) {
       if (questions.filter(q => q.id.startsWith('q_def_')).length >= 3 || questions.length >= TARGET_COUNT) break;
       const qTitle = `«${item.term}» — це:`;
@@ -252,8 +206,89 @@
       }
     }
 
-    // Гарантуємо рівно 12 запитань
     return questions.slice(0, TARGET_COUNT);
+  }
+
+  /* Генератор запитань для однієї сторінки конспекту */
+  function generateQuestions(theses, allTheses, pageNum) {
+    if (!theses) return [];
+    if (Array.isArray(theses.tests) && theses.tests.length === 12) return theses.tests;
+
+    const curTerms = Array.isArray(theses.terms) ? [...theses.terms] : [];
+    const curPoints = Array.isArray(theses.points) ? [...theses.points] : [];
+    const curFormulas = Array.isArray(theses.formulas) ? [...theses.formulas] : [];
+
+    const poolTerms = [];
+    const poolPoints = [];
+    const poolFormulas = [];
+
+    if (allTheses) {
+      const curP = parseInt(pageNum, 10) || 1;
+      const pagesSorted = Object.keys(allTheses).map(n => parseInt(n, 10)).filter(Boolean)
+        .sort((a, b) => Math.abs(a - curP) - Math.abs(b - curP));
+
+      for (const p of pagesSorted) {
+        const t = allTheses[String(p)];
+        if (!t) continue;
+        if (Array.isArray(t.terms)) {
+          for (const item of t.terms) if (item.term && item.def) poolTerms.push(item);
+        }
+        if (Array.isArray(t.points)) {
+          for (const pt of t.points) if (pt && pt.length > 15) poolPoints.push(pt);
+        }
+        if (Array.isArray(t.formulas)) {
+          for (const f of t.formulas) if (f) poolFormulas.push(f);
+        }
+      }
+    }
+
+    return build12Questions({ curTerms, curPoints, curFormulas, poolTerms, poolPoints, poolFormulas });
+  }
+
+  /* Генератор 12 запитань за обраним діапазоном параграфів/сторінок */
+  function generateQuestionsForRange(book, pFrom, pTo, allTheses) {
+    if (!allTheses) return [];
+    const fromNum = parseInt(pFrom, 10) || 1;
+    const toNum = parseInt(pTo, 10) || fromNum;
+
+    const rangePages = [];
+    for (const [pStr, t] of Object.entries(allTheses)) {
+      if (!t) continue;
+      const m = t.title ? t.title.match(/§\s*(\d+)/) : null;
+      const pIndex = parseInt(pStr, 10);
+      let inRange = false;
+
+      if (m) {
+        const paraNum = parseInt(m[1], 10);
+        inRange = (paraNum >= fromNum && paraNum <= toNum);
+      } else {
+        inRange = (pIndex >= fromNum && pIndex <= toNum);
+      }
+
+      if (inRange) rangePages.push(t);
+    }
+
+    const primaryTheses = rangePages.length ? rangePages : Object.values(allTheses);
+
+    const curTerms = [];
+    const curPoints = [];
+    const curFormulas = [];
+    for (const t of primaryTheses) {
+      if (Array.isArray(t.terms)) for (const item of t.terms) if (item.term && item.def) curTerms.push(item);
+      if (Array.isArray(t.points)) for (const pt of t.points) if (pt && pt.length > 15) curPoints.push(pt);
+      if (Array.isArray(t.formulas)) for (const f of t.formulas) if (f) curFormulas.push(f);
+    }
+
+    const poolTerms = [];
+    const poolPoints = [];
+    const poolFormulas = [];
+    for (const t of Object.values(allTheses)) {
+      if (Array.isArray(t.terms)) for (const item of t.terms) if (item.term && item.def) poolTerms.push(item);
+      if (Array.isArray(t.points)) for (const pt of t.points) if (pt && pt.length > 15) poolPoints.push(pt);
+      if (Array.isArray(t.formulas)) for (const f of t.formulas) if (f) poolFormulas.push(f);
+    }
+
+    return build12Questions({ curTerms, curPoints, curFormulas, poolTerms, poolPoints, poolFormulas });
   }
 
   class QuizEngine {
@@ -265,7 +300,7 @@
       this.theses = null;
       this.allTheses = null;
       this.questions = [];
-      this.answers = []; // збережені вибори користувача: [optionIndex, ...]
+      this.answers = [];
       this.isSubmitted = false;
       this.onNextPage = null;
 
@@ -289,7 +324,6 @@
       document.addEventListener('keydown', e => {
         if (!this.active) return;
         if (e.key === 'Escape') {
-          // Якщо відкрите вікно підтвердження — закриваємо його, інакше закриваємо весь тест
           const conf = document.getElementById('quiz-confirm-dialog');
           if (conf && !conf.hidden) {
             this.closeConfirm();
@@ -323,14 +357,11 @@
       if (bMax) bMax.disabled = i === FS.length - 1;
     }
 
-    hasQuestions(theses, book, page) {
+    hasQuestions(theses) {
       if (!theses) return false;
-
-      // Повністю виключаємо обкладинки, форзаци, вступ, зміст, покажчики та службові сторінки
       const excludedKinds = ['cover', 'intro', 'toc', 'empty', 'answers', 'index', 'image'];
       if (theses.kind && excludedKinds.includes(theses.kind)) return false;
 
-      // Перевірка за назвою сторінки на обкладинки та форзаци
       const t = String(theses.title || '').toLowerCase();
       if (
         t.includes('обкладинк') ||
@@ -344,13 +375,13 @@
         return false;
       }
 
-      // Тільки для змістовних сторінок теми з конспектом
       const hasContent = (Array.isArray(theses.terms) && theses.terms.length > 0) ||
                          (Array.isArray(theses.points) && theses.points.length > 0) ||
                          (Array.isArray(theses.tests) && theses.tests.length > 0);
       return hasContent;
     }
 
+    /* Відкриття тесту до конкретної сторінки */
     open({ book, page, pageLabel, theses, onNextPage }) {
       this.book = book;
       this.page = page;
@@ -370,6 +401,26 @@
       this.applyFontScale();
     }
 
+    /* Відкриття тесту за діапазоном параграфів */
+    openRangeQuiz({ book, paragraphFrom, paragraphTo, allTheses, rangeLabel }) {
+      this.book = book;
+      this.page = 1;
+      this.pageLabel = rangeLabel || `§ ${paragraphFrom} – § ${paragraphTo}`;
+      this.theses = null;
+      this.allTheses = allTheses;
+      this.onNextPage = null;
+
+      this.questions = generateQuestionsForRange(book, paragraphFrom, paragraphTo, allTheses);
+      this.answers = new Array(this.questions.length).fill(null);
+      this.isSubmitted = false;
+      this.active = true;
+
+      document.body.classList.add('quiz-open');
+      this.el.setAttribute('aria-hidden', 'false');
+      this.render();
+      this.applyFontScale();
+    }
+
     close() {
       this.active = false;
       this.el.setAttribute('aria-hidden', 'true');
@@ -378,7 +429,7 @@
     }
 
     selectAnswer(qIndex, optIndex) {
-      if (this.isSubmitted) return; // Після перевірки змінювати заборонено
+      if (this.isSubmitted) return;
       this.answers[qIndex] = optIndex;
       this.renderQuestionOptions(qIndex);
       this.updateSubmitButtonState();
@@ -421,7 +472,6 @@
         `;
       }).join('');
 
-      // Прив'язка кліків до варіантів
       if (!this.isSubmitted) {
         optContainer.querySelectorAll('.quiz-opt-btn').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -459,11 +509,11 @@
       this.render();
       this.applyFontScale();
 
-      // Прокрутка до початку результатів
       const wrap = document.getElementById('quiz-scrollable');
       if (wrap) wrap.scrollTop = 0;
     }
 
+    /* Рендеринг основного вікна тесту */
     render() {
       const total = this.questions.length;
       const answeredCount = this.answers.filter(a => a !== null).length;
@@ -481,12 +531,13 @@
           <header class="quiz-header">
             <div class="quiz-header-meta">
               <span class="quiz-book-tag">${esc(this.book?.subject || 'Підручник')}</span>
-              <span class="quiz-page-tag">с. ${esc(this.pageLabel)}</span>
+              <span class="quiz-page-tag">${esc(this.pageLabel)}</span>
             </div>
             <h2 id="quiz-title" class="quiz-title">
-              ${this.isSubmitted ? 'Результати перевірки знань' : 'Тест до матеріалу сторінки'}
+              ${this.isSubmitted ? 'Результати тесту' : 'Тест на 12 питань'}
             </h2>
             <div class="quiz-header-actions">
+              <button type="button" class="qpdf-btn" id="quiz-btn-pdf" title="Завантажити цей тест у PDF">📄 PDF</button>
               <div class="quiz-font-ctrl" role="group" aria-label="Розмір шрифту тесту">
                 <button type="button" class="qfs-btn" data-qfs="-1" title="Зменшити шрифт">А−</button>
                 <button type="button" class="qfs-btn" data-qfs="1" title="Збільшити шрифт">А+</button>
@@ -498,7 +549,7 @@
           <div class="quiz-body" id="quiz-scrollable">
             ${total === 0 ? `
               <div class="quiz-empty">
-                <p>Для цієї сторінки тест ще не створено або вона не містить навчального матеріалу.</p>
+                <p>За вказаними параметрами не знайдено запитань або сторінка не містить навчального матеріалу.</p>
               </div>
             ` : `
               <div class="quiz-questions-list">
@@ -552,19 +603,24 @@
                   </p>
                   <p class="qfs-desc">
                     ${score === total 
-                      ? 'Ви блискуче засвоїли матеріал цієї сторінки. Можна сміливо переходити далі!' 
+                      ? 'Ви блискуче засвоїли матеріал обраної теми. Результати можна роздрукувати або зберегти у PDF!' 
                       : 'Ознайомтеся з детальним розбором вище, щоб заповнити прогалини та краще запам\'ятати тему.'}
                   </p>
                   <div class="qfs-buttons">
-                    <button type="button" class="qfs-btn-primary" id="btn-next-page">
-                      <span>Перейти до наступної сторінки</span>
-                      <span class="qfs-arr">→</span>
+                    <button type="button" class="qfs-btn-secondary" id="btn-quiz-pdf-export">
+                      📄 Завантажити у PDF
                     </button>
+                    ${this.onNextPage ? `
+                      <button type="button" class="qfs-btn-primary" id="btn-next-page">
+                        <span>Наступна сторінка</span>
+                        <span class="qfs-arr">→</span>
+                      </button>
+                    ` : ''}
                     <button type="button" class="qfs-btn-secondary" id="btn-retry-quiz">
                       ↺ Пройти ще раз
                     </button>
                     <button type="button" class="qfs-btn-ghost" id="btn-done-reading">
-                      Повернутися до читання
+                      Повернутися
                     </button>
                   </div>
                 </div>
@@ -583,7 +639,7 @@
             </footer>
           ` : ''}
 
-          <!-- Модальне вікно підтвердження відправки на перевірку -->
+          <!-- Модальне вікно підтвердження -->
           <div class="quiz-confirm-dialog" id="quiz-confirm-dialog" hidden role="alertdialog" aria-modal="true">
             <div class="qcd-box">
               <div class="qcd-icon">⚠️</div>
@@ -607,17 +663,29 @@
         </div>
       `;
 
-      // Рендеримо варіанти відповідей
       this.questions.forEach((_, idx) => this.renderQuestionOptions(idx));
       this.updateSubmitButtonState();
 
-      // Навішуємо обробники подій
       document.getElementById('quiz-backdrop')?.addEventListener('click', () => this.close());
       document.getElementById('quiz-btn-close')?.addEventListener('click', () => this.close());
 
       this.el.querySelectorAll('[data-qfs]').forEach(btn => {
         btn.addEventListener('click', () => this.setFontScale(+btn.dataset.qfs));
       });
+
+      // Експорт у PDF
+      const exportPdf = () => {
+        if (window.PdfExport && this.questions?.length) {
+          window.PdfExport.openExportDialog({
+            subject: this.book?.subject || 'Підручник',
+            title: this.pageLabel ? `Тест: ${this.pageLabel}` : 'Тематичний тест',
+            grade: '8 клас',
+            questions: this.questions
+          });
+        }
+      };
+      document.getElementById('quiz-btn-pdf')?.addEventListener('click', exportPdf);
+      document.getElementById('btn-quiz-pdf-export')?.addEventListener('click', exportPdf);
 
       document.getElementById('quiz-btn-submit')?.addEventListener('click', () => this.openConfirm());
       document.getElementById('btn-confirm-cancel')?.addEventListener('click', () => this.closeConfirm());
@@ -637,8 +705,199 @@
 
       document.getElementById('btn-done-reading')?.addEventListener('click', () => this.close());
     }
+
+    /* ЕКРАН НАЛАШТУВАННЯ ТЕСТУ (Центр тестування) з головного екрана */
+    async openTestCenterModal(booksList) {
+      // Отримуємо список книг
+      let subjects = booksList;
+      if (!subjects || !subjects.length) {
+        try {
+          const res = await fetch('books.json');
+          const data = await res.json();
+          subjects = data.subjects || [];
+        } catch {
+          subjects = [];
+        }
+      }
+
+      let modal = document.getElementById('test-center-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'test-center-modal';
+        modal.className = 'auth-modal-overlay';
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(modal);
+      }
+
+      modal.innerHTML = `
+        <div class="auth-modal-backdrop" id="tc-backdrop"></div>
+        <div class="auth-modal-box tc-modal-box" role="dialog" aria-modal="true" aria-labelledby="tc-title">
+          <header class="auth-modal-head">
+            <span class="auth-head-ico" style="color: #00f0ff">⚡</span>
+            <div class="pdf-head-meta">
+              <h3 id="tc-title" class="auth-modal-title">Центр тестування</h3>
+              <span class="pdf-sub">Генератор тесту на 12 запитань за параграфами</span>
+            </div>
+            <button type="button" class="auth-modal-close" id="tc-close-btn" aria-label="Закрити">✕</button>
+          </header>
+
+          <div class="auth-modal-body">
+            <p class="auth-intro">
+              Оберіть предмет та діапазон тем. Система автоматично сформує <strong>12 лаконічних завдань</strong> для проходження онлайн або завантаження у PDF.
+            </p>
+
+            <div class="tc-form">
+              <div class="pdf-cfg-group">
+                <label class="pdf-cfg-label" for="tc-subject-select">Предмет:</label>
+                <select id="tc-subject-select" class="pdf-select">
+                  ${subjects.map(s => `<option value="${s.slug}">${s.subject} (${s.group})</option>`).join('')}
+                </select>
+              </div>
+
+              <div class="tc-range-grid">
+                <div class="pdf-cfg-group">
+                  <label class="pdf-cfg-label" for="tc-from">З параграфа (або теми):</label>
+                  <select id="tc-from" class="pdf-select"></select>
+                </div>
+                <div class="pdf-cfg-group">
+                  <label class="pdf-cfg-label" for="tc-to">По параграф (або тему):</label>
+                  <select id="tc-to" class="pdf-select"></select>
+                </div>
+              </div>
+
+              <div class="tc-stats-box" id="tc-stats-box">
+                <span class="tc-pulse-dot"></span>
+                <span id="tc-stats-text">Завантаження змісту...</span>
+              </div>
+
+              <div class="auth-actions" style="margin-top: 14px;">
+                <button type="button" class="auth-submit-btn" id="btn-tc-start-quiz">
+                  <span>⚡ Почати тест</span>
+                  <span class="cy-arr">→</span>
+                </button>
+                <button type="button" class="auth-cancel-btn" id="btn-tc-export-pdf" title="Експортувати цей діапазон у PDF">
+                  📄 Завантажити в PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('auth-modal-open');
+
+      const closeTc = () => {
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = '';
+        document.body.classList.remove('auth-modal-open');
+      };
+
+      document.getElementById('tc-backdrop')?.addEventListener('click', closeTc);
+      document.getElementById('tc-close-btn')?.addEventListener('click', closeTc);
+
+      // Логіка оновлення параграфів при зміні предмета
+      const subjSelect = document.getElementById('tc-subject-select');
+      const fromSelect = document.getElementById('tc-from');
+      const toSelect = document.getElementById('tc-to');
+      const statsText = document.getElementById('tc-stats-text');
+
+      let currentTheses = null;
+      let currentBook = null;
+
+      const loadSubjectParagraphs = async (slug) => {
+        currentBook = subjects.find(s => s.slug === slug);
+        statsText.textContent = 'Аналіз конспектів та тем...';
+
+        try {
+          const res = await fetch(`books/${slug}/theses.json`);
+          const data = await res.json();
+          currentTheses = data.pages || {};
+
+          // Знаходимо параграфи з позначкою §
+          const pNums = [];
+          for (const t of Object.values(currentTheses)) {
+            if (t.title) {
+              const m = t.title.match(/§\s*(\d+)/);
+              if (m) pNums.push(parseInt(m[1], 10));
+            }
+          }
+
+          fromSelect.innerHTML = '';
+          toSelect.innerHTML = '';
+
+          if (pNums.length) {
+            const minP = Math.min(...pNums);
+            const maxP = Math.max(...pNums);
+
+            for (let i = minP; i <= maxP; i++) {
+              fromSelect.add(new Option(`§ ${i}`, String(i)));
+              toSelect.add(new Option(`§ ${i}`, String(i)));
+            }
+
+            fromSelect.value = String(minP);
+            toSelect.value = String(Math.min(minP + 4, maxP));
+            statsText.textContent = `Доступно ${maxP} параграфів · Формат: 12 питань з 4 варіантами (А, Б, В, Г)`;
+          } else {
+            // Предмети без позначки § (за темами / сторінками)
+            const pagesCount = currentBook?.pages || 200;
+            const step = 20;
+            for (let p = 1; p <= pagesCount; p += step) {
+              const endP = Math.min(p + step - 1, pagesCount);
+              fromSelect.add(new Option(`с. ${p}`, String(p)));
+              toSelect.add(new Option(`с. ${endP}`, String(endP)));
+            }
+            toSelect.value = String(Math.min(60, pagesCount));
+            statsText.textContent = `Тематичний діапазон · Формат: 12 запитань (А, Б, В, Г)`;
+          }
+        } catch {
+          statsText.textContent = 'Конспект завантажено · Готово до тестування';
+        }
+      };
+
+      subjSelect.addEventListener('change', () => loadSubjectParagraphs(subjSelect.value));
+      await loadSubjectParagraphs(subjSelect.value);
+
+      // Кнопка "Почати тест"
+      document.getElementById('btn-tc-start-quiz')?.addEventListener('click', () => {
+        closeTc();
+        const pFrom = fromSelect.value;
+        const pTo = toSelect.value;
+        const rangeLabel = fromSelect.selectedOptions[0]?.text.includes('§')
+          ? `${fromSelect.selectedOptions[0].text} – ${toSelect.selectedOptions[0].text}`
+          : `${fromSelect.selectedOptions[0].text} – ${toSelect.selectedOptions[0].text}`;
+
+        this.openRangeQuiz({
+          book: currentBook,
+          paragraphFrom: pFrom,
+          paragraphTo: pTo,
+          allTheses: currentTheses,
+          rangeLabel
+        });
+      });
+
+      // Кнопка "Завантажити в PDF"
+      document.getElementById('btn-tc-export-pdf')?.addEventListener('click', () => {
+        closeTc();
+        const pFrom = fromSelect.value;
+        const pTo = toSelect.value;
+        const rangeLabel = fromSelect.selectedOptions[0]?.text.includes('§')
+          ? `${fromSelect.selectedOptions[0].text} – ${toSelect.selectedOptions[0].text}`
+          : `${fromSelect.selectedOptions[0].text} – ${toSelect.selectedOptions[0].text}`;
+
+        const generatedQs = generateQuestionsForRange(currentBook, pFrom, pTo, currentTheses);
+
+        if (window.PdfExport) {
+          window.PdfExport.openExportDialog({
+            subject: currentBook?.subject || 'Підручник',
+            title: `Тематичний тест: ${rangeLabel}`,
+            grade: '8 клас',
+            questions: generatedQs
+          });
+        }
+      });
+    }
   }
 
-  // Експортуємо глобальний екземпляр
   window.Quiz = new QuizEngine();
 })();

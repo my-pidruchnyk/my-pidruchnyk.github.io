@@ -210,6 +210,12 @@
     }
 
     openHubModal(hubKey) {
+      if (hubKey === 'tests' || hubKey === 'hub-tests') {
+        if (window.Quiz?.openTestCenterModal) {
+          window.Quiz.openTestCenterModal();
+          return;
+        }
+      }
       const info = HUB_INFO[hubKey];
       if (!info) return;
 
