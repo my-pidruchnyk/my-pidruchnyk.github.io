@@ -323,13 +323,32 @@
       if (bMax) bMax.disabled = i === FS.length - 1;
     }
 
-    hasQuestions(theses) {
+    hasQuestions(theses, book, page) {
       if (!theses) return false;
-      if (Array.isArray(theses.tests) && theses.tests.length) return true;
-      if (Array.isArray(theses.test) && theses.test.length) return true;
-      if (Array.isArray(theses.points) && theses.points.length) return true;
-      if (Array.isArray(theses.terms) && theses.terms.length) return true;
-      return false;
+
+      // Повністю виключаємо обкладинки, форзаци, вступ, зміст, покажчики та службові сторінки
+      const excludedKinds = ['cover', 'intro', 'toc', 'empty', 'answers', 'index', 'image'];
+      if (theses.kind && excludedKinds.includes(theses.kind)) return false;
+
+      // Перевірка за назвою сторінки на обкладинки та форзаци
+      const t = String(theses.title || '').toLowerCase();
+      if (
+        t.includes('обкладинк') ||
+        t.includes('форзац') ||
+        t.includes('титул') ||
+        t.includes('вихідні дані') ||
+        t.includes('зміст') ||
+        t.includes('правила безпеки') ||
+        t.includes('інструкція з безпеки')
+      ) {
+        return false;
+      }
+
+      // Тільки для змістовних сторінок теми з конспектом
+      const hasContent = (Array.isArray(theses.terms) && theses.terms.length > 0) ||
+                         (Array.isArray(theses.points) && theses.points.length > 0) ||
+                         (Array.isArray(theses.tests) && theses.tests.length > 0);
+      return hasContent;
     }
 
     open({ book, page, pageLabel, theses, onNextPage }) {
