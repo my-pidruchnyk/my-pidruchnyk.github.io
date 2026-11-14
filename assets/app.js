@@ -315,7 +315,7 @@
               <button type="button" class="cy-hub-card" data-hub="sr" style="--hub-c: #7dff4d;">
                 <div class="cy-hub-head">
                   <span class="cy-hub-ico" aria-hidden="true">📝</span>
-                  <span class="cy-hub-badge soon">Заглушка</span>
+                  <span class="cy-hub-badge active">Активно</span>
                 </div>
                 <h4 class="cy-hub-title">Самостійні роботи (СР)</h4>
                 <p class="cy-hub-desc">Тренувальні та діагностичні завдання за темами програми</p>
@@ -328,7 +328,7 @@
               <button type="button" class="cy-hub-card" data-hub="kr" style="--hub-c: #ff2bd6;">
                 <div class="cy-hub-head">
                   <span class="cy-hub-ico" aria-hidden="true">📊</span>
-                  <span class="cy-hub-badge soon">Заглушка</span>
+                  <span class="cy-hub-badge active">Активно</span>
                 </div>
                 <h4 class="cy-hub-title">Контрольні роботи (КР)</h4>
                 <p class="cy-hub-desc">Тематичні та семестрові зрізи знань для оцінювання</p>
@@ -341,7 +341,7 @@
               <button type="button" class="cy-hub-card" data-hub="exams" style="--hub-c: #ffe14d;">
                 <div class="cy-hub-head">
                   <span class="cy-hub-ico" aria-hidden="true">🎓</span>
-                  <span class="cy-hub-badge soon">Заглушка</span>
+                  <span class="cy-hub-badge active">Активно</span>
                 </div>
                 <h4 class="cy-hub-title">Екзамени</h4>
                 <p class="cy-hub-desc">Підсумкова річна атестація та комплексні зрізи</p>
@@ -376,8 +376,8 @@
       el.addEventListener('click', () => openBook(el.dataset.slug)));
     document.getElementById('to-list')?.addEventListener('click', () => document.getElementById('list').scrollIntoView({ behavior: 'smooth' }));
     document.getElementById('btn-teacher-top')?.addEventListener('click', () => window.TeacherAuth?.openAuthModal());
-    app.querySelectorAll('.cy-hub-card').forEach(card => {
-      card.addEventListener('click', () => window.TeacherAuth?.openHubModal(card.dataset.hub));
+    // hub handlers overridden by initHubHandlers
+//      card.addEventListener('click', () => window.TeacherAuth?.openHubModal(card.dataset.hub));
     });
   }
 

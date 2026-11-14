@@ -421,6 +421,45 @@
       this.applyFontScale();
     }
 
+    // Open quiz for a single paragraph (SR) with 8‑10 questions
+    openSingleParagraphQuiz({ book, paragraphFrom, paragraphTo, allTheses, rangeLabel }) {
+      this.book = book;
+      this.page = 1;
+      this.pageLabel = rangeLabel || `§ ${paragraphFrom}`;
+      this.theses = null;
+      this.allTheses = allTheses;
+      this.onNextPage = null;
+
+      const full = generateQuestionsForRange(book, paragraphFrom, paragraphTo, allTheses);
+      const count = 8 + Math.floor(Math.random() * 3); // 8‑10
+      this.questions = full.slice(0, Math.min(count, full.length));
+      this.answers = new Array(this.questions.length).fill(null);
+      this.isSubmitted = false;
+      this.active = true;
+
+      document.body.classList.add('quiz-open');
+      this.el.setAttribute('aria-hidden', 'false');
+      this.render();
+      this.applyFontScale();
+    }
+      this.book = book;
+      this.page = 1;
+      this.pageLabel = rangeLabel || `§ ${paragraphFrom} – § ${paragraphTo}`;
+      this.theses = null;
+      this.allTheses = allTheses;
+      this.onNextPage = null;
+
+      this.questions = generateQuestionsForRange(book, paragraphFrom, paragraphTo, allTheses);
+      this.answers = new Array(this.questions.length).fill(null);
+      this.isSubmitted = false;
+      this.active = true;
+
+      document.body.classList.add('quiz-open');
+      this.el.setAttribute('aria-hidden', 'false');
+      this.render();
+      this.applyFontScale();
+    }
+
     close() {
       this.active = false;
       this.el.setAttribute('aria-hidden', 'true');
