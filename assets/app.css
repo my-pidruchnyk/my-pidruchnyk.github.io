@@ -2553,3 +2553,82 @@ body.auth-modal-open {
 #wm-overlay {
   z-index: 2147482550 !important;
 }
+.quiz-overlay {
+  z-index: 2147483600 !important;
+}
+.neon-cursor {
+  z-index: 2147483647 !important;
+}
+
+/* Відновлення надійного видимого курсору у модальних вікнах, тестах та формах */
+.auth-modal-overlay,
+.auth-modal-overlay *,
+.quiz-overlay,
+.quiz-overlay * {
+  cursor: auto !important;
+}
+.auth-modal-overlay button,
+.auth-modal-overlay select,
+.auth-modal-overlay input[type="range"],
+.auth-modal-overlay input[type="checkbox"],
+.auth-modal-overlay label,
+.auth-modal-overlay [role="button"],
+.quiz-overlay button,
+.quiz-overlay label,
+.quiz-opt-btn,
+.wm-tab,
+.wm-vbtn,
+.wm-btn-pdf {
+  cursor: pointer !important;
+}
+.quiz-text-input,
+.auth-modal-overlay input[type="text"],
+.auth-modal-overlay input[type="password"] {
+  cursor: text !important;
+}
+
+/* Вільний ввід (відкрита коротка відповідь: 1 слово або число) */
+.quiz-open-input-wrap {
+  margin: 12px 0 8px;
+}
+.quiz-text-input {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(10, 8, 24, .85);
+  border: 1.5px solid rgba(0, 240, 255, .4);
+  border-radius: 8px;
+  padding: 11px 16px;
+  font-size: 1.05rem;
+  color: #fff;
+  outline: none;
+  font-family: inherit;
+  transition: border-color .15s, box-shadow .15s;
+}
+.quiz-text-input:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 16px rgba(0, 240, 255, .4);
+}
+.quiz-text-input.inp-ok {
+  border-color: #7dff4d;
+  background: rgba(125, 255, 77, .12);
+  color: #7dff4d;
+}
+.quiz-text-input.inp-err {
+  border-color: #ff4d4d;
+  background: rgba(255, 77, 77, .12);
+  color: #ff9999;
+}
+.quiz-open-feedback {
+  margin-top: 8px;
+  font-size: .9rem;
+  color: #7dff4d;
+}
+.q-type-badge {
+  font-size: .72rem;
+  color: #00f0ff;
+  background: rgba(0, 240, 255, .15);
+  border: 1px solid rgba(0, 240, 255, .3);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-weight: 600;
+}

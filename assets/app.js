@@ -259,7 +259,17 @@
       preview.querySelectorAll('.wm-btn-quiz').forEach(btn => {
         btn.addEventListener('click', () => {
           const v = generated[+btn.dataset.vi];
-          window.Quiz.openWithQuestions({ book: v.book, questions: v.questions, rangeLabel: v.label });
+          const wm = document.getElementById('wm-overlay');
+          if (wm) wm.style.display = 'none';
+
+          window.Quiz.openWithQuestions({
+            book: v.book,
+            questions: v.questions,
+            rangeLabel: `${v.book?.subject || 'Підручник'} · ${v.label}`,
+            onClose: () => {
+              if (wm) wm.style.display = '';
+            }
+          });
         });
       });
 

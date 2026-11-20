@@ -106,28 +106,42 @@
       });
     }
 
-    // 2. Відкриті короткі аналітичні завдання
-    const allPointsForOpen = [...cPoints, ...pPoints];
-    for (const pt of allPointsForOpen) {
-      if (questions.filter(q => q.id.startsWith('q_open_')).length >= targetOpen || questions.length >= TARGET_COUNT) break;
-      const stmt = shortText(pt, 65);
-      const qTitle = `Практичне завдання до тези: «${stmt}».\nЯкий висновок є правильним?`;
+    // 2. Відкриті короткі завдання з полем вільного вводу (відповідь — 1 слово або число)
+    const singleWordTerms = [...cTerms, ...pTerms].filter(item => {
+      if (!item || !item.term || !item.def) return false;
+      const clean = item.term.trim();
+      return /^[a-zA-Zа-яА-ЯіІїЇєЄґҐ0-9\-]+$/.test(clean) && !clean.includes(' ');
+    });
+
+    const fallbackSingleWords = [
+      { term: 'Величина', def: 'кількісна характеристика властивості тіла або процесу' },
+      { term: 'Процес', def: 'послідовна зміна станів об’єкта або системи' },
+      { term: 'Закон', def: 'необхідний і сталий зв’язок між явищами' },
+      { term: 'Система', def: 'сукупність взаємопов’язаних елементів' },
+      { term: 'Параметр', def: 'величина, що описує стан досліджуваної системи' },
+      { term: 'Енергія', def: 'загальна кількісна міра руху і взаємодії всіх видів матерії' },
+      { term: 'Рівняння', def: 'аналітичний запис рівності двох виразів із невідомими' },
+      { term: 'Функція', def: 'відповідність між елементами двох множин' },
+      { term: 'Графік', def: 'наочне геометричне зображення залежності між величинами' }
+    ];
+    for (const fb of fallbackSingleWords) {
+      if (singleWordTerms.length < 15) singleWordTerms.push(fb);
+    }
+
+    for (const item of shuffle(singleWordTerms)) {
+      if (questions.filter(q => q.type === 'input').length >= targetOpen || questions.length >= TARGET_COUNT) break;
+      const termWord = item.term.trim();
+      const qTitle = `Завдання з короткою відповіддю:\nВкажіть науковий термін, що означає: «${shortText(item.def, 75)}».\n(Запишіть відповідь одним словом)`;
       if (seenTitles.has(qTitle)) continue;
       seenTitles.add(qTitle);
 
-      const correctOpt = 'Твердження безпосередньо випливає з теоретичного правила';
-      const dists = [
-        'Положення діє лише за особливих штучних умов',
-        'Твердження суперечить основним закономірностям теми',
-        'Положення стосується виключно іншого розділу науки'
-      ];
-      const opts = shuffle([correctOpt, ...dists]);
       questions.push({
         id: `q_open_${questions.length + 1}`,
+        type: 'input',
         title: qTitle,
-        options: opts,
-        correctIndex: opts.indexOf(correctOpt),
-        explanation: `Правильний висновок: «${pt}».`
+        expectedAnswer: termWord,
+        options: [],
+        explanation: `Правильна відповідь: «${termWord}». Визначення: ${item.def}.`
       });
     }
 
@@ -270,8 +284,9 @@
       });
     }
 
-    // Гарантуємо рівно 4 варіанти (А, Б, В, Г) для кожного питання
+    // Гарантуємо рівно 4 варіанти (А, Б, В, Г) для кожного тестового питання (крім відкритого типу)
     for (const q of questions) {
+      if (q.type === 'input') continue;
       while (q.options.length < 4) {
         q.options.push(`Додатковий варіант ${q.options.length + 1}`);
       }
@@ -479,13 +494,14 @@
     }
 
     /* Відкриття тесту з готовими питаннями (для СР/КР preview) */
-    openWithQuestions({ book, questions, rangeLabel }) {
+    openWithQuestions({ book, questions, rangeLabel, onClose }) {
       this.book = book;
       this.page = 1;
       this.pageLabel = rangeLabel || '';
       this.theses = null;
       this.allTheses = null;
       this.onNextPage = null;
+      this.onClose = onClose || null;
       this.questions = questions;
       this.answers = new Array(questions.length).fill(null);
       this.isSubmitted = false;
@@ -504,6 +520,7 @@
       this.theses = null;
       this.allTheses = allTheses;
       this.onNextPage = null;
+      this.onClose = null;
 
       this.questions = generateQuestionsForRange(book, paragraphFrom, paragraphTo, allTheses);
       this.answers = new Array(this.questions.length).fill(null);
@@ -521,6 +538,11 @@
       this.el.setAttribute('aria-hidden', 'true');
       this.el.innerHTML = '';
       document.body.classList.remove('quiz-open');
+      if (typeof this.onClose === 'function') {
+        const cb = this.onClose;
+        this.onClose = null;
+        cb();
+      }
     }
 
     selectAnswer(qIndex, optIndex) {
@@ -579,7 +601,7 @@
     updateSubmitButtonState() {
       const btn = document.getElementById('quiz-btn-submit');
       if (!btn) return;
-      const count = this.answers.filter(a => a !== null).length;
+      const count = this.answers.filter(a => a !== null && a !== undefined && String(a).trim() !== '').length;
       btn.textContent = count === this.questions.length 
         ? 'Перевірити тест' 
         : `Перевірити тест (${count} з ${this.questions.length})`;
@@ -611,11 +633,16 @@
     /* Рендеринг основного вікна тесту */
     render() {
       const total = this.questions.length;
-      const answeredCount = this.answers.filter(a => a !== null).length;
+      const answeredCount = this.answers.filter(a => a !== null && a !== undefined && String(a).trim() !== '').length;
       let score = 0;
 
       if (this.isSubmitted) {
         score = this.questions.reduce((acc, q, idx) => {
+          if (q.type === 'input') {
+            const user = String(this.answers[idx] ?? '').trim().toLowerCase();
+            const exp = String(q.expectedAnswer ?? '').trim().toLowerCase();
+            return acc + (user === exp && user.length > 0 ? 1 : 0);
+          }
           return acc + (this.answers[idx] === q.correctIndex ? 1 : 0);
         }, 0);
       }
@@ -650,13 +677,27 @@
               <div class="quiz-questions-list">
                 ${this.questions.map((q, idx) => {
                   const userAnswer = this.answers[idx];
-                  const isWrong = this.isSubmitted && userAnswer !== q.correctIndex;
-                  const isCorrect = this.isSubmitted && userAnswer === q.correctIndex;
+                  const isOpen = q.type === 'input';
+                  let isWrong = false;
+                  let isCorrect = false;
+
+                  if (this.isSubmitted) {
+                    if (isOpen) {
+                      const user = String(userAnswer ?? '').trim().toLowerCase();
+                      const exp = String(q.expectedAnswer ?? '').trim().toLowerCase();
+                      isCorrect = (user === exp && user.length > 0);
+                      isWrong = !isCorrect;
+                    } else {
+                      isWrong = userAnswer !== q.correctIndex;
+                      isCorrect = userAnswer === q.correctIndex;
+                    }
+                  }
 
                   return `
                     <section class="quiz-q-card ${isWrong ? 'card-wrong' : ''} ${isCorrect ? 'card-correct' : ''}">
                       <div class="quiz-q-num">
                         <span>Питання ${idx + 1} з ${total}</span>
+                        ${isOpen ? '<span class="q-type-badge">Коротка відповідь (1 слово/число)</span>' : ''}
                         ${this.isSubmitted ? (
                           isCorrect 
                             ? '<span class="q-status-badge ok">✓ Правильно</span>' 
@@ -664,7 +705,25 @@
                         ) : ''}
                       </div>
                       <h3 class="quiz-q-title">${esc(q.title)}</h3>
-                      <div class="quiz-options-grid" id="quiz-options-${idx}"></div>
+                      ${isOpen ? `
+                        <div class="quiz-open-input-wrap">
+                          <input type="text"
+                                 class="quiz-text-input ${isCorrect ? 'inp-ok' : ''} ${isWrong ? 'inp-err' : ''}"
+                                 data-q="${idx}"
+                                 placeholder="Введіть відповідь (1 слово або число)..."
+                                 value="${esc(userAnswer ?? '')}"
+                                 ${this.isSubmitted ? 'disabled' : ''}
+                                 autocomplete="off"
+                                 spellcheck="false">
+                          ${this.isSubmitted && isWrong ? `
+                            <div class="quiz-open-feedback">
+                              Правильна відповідь: <strong>${esc(q.expectedAnswer)}</strong>
+                            </div>
+                          ` : ''}
+                        </div>
+                      ` : `
+                        <div class="quiz-options-grid" id="quiz-options-${idx}"></div>
+                      `}
                       
                       ${isWrong ? `
                         <div class="quiz-mistake-card" role="alert">
@@ -758,7 +817,16 @@
         </div>
       `;
 
-      this.questions.forEach((_, idx) => this.renderQuestionOptions(idx));
+      this.questions.forEach((q, idx) => {
+        if (q.type !== 'input') this.renderQuestionOptions(idx);
+      });
+
+      this.el.querySelectorAll('.quiz-text-input').forEach(inp => {
+        inp.addEventListener('input', () => {
+          this.answers[+inp.dataset.q] = inp.value.trim();
+          this.updateSubmitButtonState();
+        });
+      });
       this.updateSubmitButtonState();
 
       document.getElementById('quiz-backdrop')?.addEventListener('click', () => this.close());

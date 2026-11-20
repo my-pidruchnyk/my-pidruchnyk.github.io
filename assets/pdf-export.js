@@ -394,14 +394,20 @@
               ${v.questions.map((q, idx) => `
                 <div class="q-item">
                   <div class="q-title">${idx + 1}. ${esc(q.title)}</div>
-                  <div class="q-opts-grid">
-                    ${q.options.map((opt, oIdx) => `
-                      <div class="q-opt">
-                        <span class="q-letter">${['А', 'Б', 'В', 'Г'][oIdx]})</span>
-                        <span>${esc(opt)}</span>
-                      </div>
-                    `).join('')}
-                  </div>
+                  ${q.type === 'input' ? `
+                    <div style="margin: 6px 0; font-size: 9.5pt; color: #222;">
+                      <strong>Відповідь:</strong> ____________________________
+                    </div>
+                  ` : `
+                    <div class="q-opts-grid">
+                      ${q.options.map((opt, oIdx) => `
+                        <div class="q-opt">
+                          <span class="q-letter">${['А', 'Б', 'В', 'Г'][oIdx]})</span>
+                          <span>${esc(opt)}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  `}
                 </div>
               `).join('')}
             </div>
@@ -430,14 +436,20 @@
           ${v.questions.map((q, idx) => `
             <div class="q-item">
               <div class="q-title">${idx + 1}. ${esc(q.title)}</div>
-              <div class="q-opts-grid">
-                ${q.options.map((opt, oIdx) => `
-                  <div class="q-opt">
-                    <span class="q-letter">${['А', 'Б', 'В', 'Г'][oIdx]})</span>
-                    <span>${esc(opt)}</span>
-                  </div>
-                `).join('')}
-              </div>
+              ${q.type === 'input' ? `
+                <div style="margin: 8px 0 6px; font-size: 10.5pt; color: #222;">
+                  <strong>Відповідь:</strong> ___________________________________________________________
+                </div>
+              ` : `
+                <div class="q-opts-grid">
+                  ${q.options.map((opt, oIdx) => `
+                    <div class="q-opt">
+                      <span class="q-letter">${['А', 'Б', 'В', 'Г'][oIdx]})</span>
+                      <span>${esc(opt)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
             </div>
           `).join('')}
         </div>
@@ -460,7 +472,7 @@
           <thead>
             <tr>
               <th style="width: 50px;">№</th>
-              <th style="width: 80px;">Відповідь</th>
+              <th style="width: 100px;">Відповідь</th>
               <th>Зміст правильного варіанта</th>
             </tr>
           </thead>
@@ -468,8 +480,8 @@
             ${v.questions.map((q, idx) => `
               <tr>
                 <td><strong>${idx + 1}</strong></td>
-                <td><strong>${['А', 'Б', 'В', 'Г'][q.correctIndex]}</strong></td>
-                <td>${esc(q.options[q.correctIndex])}</td>
+                <td><strong style="color: #0f766e;">${q.type === 'input' ? esc(q.expectedAnswer) : ['А', 'Б', 'В', 'Г'][q.correctIndex]}</strong></td>
+                <td>${q.type === 'input' ? `(Вписати: «${esc(q.expectedAnswer)}»)` : esc(q.options[q.correctIndex])}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -480,7 +492,7 @@
           ${v.questions.map((q, idx) => `
             <div class="key-exp-item">
               <strong>${idx + 1}. ${esc(q.title)}</strong><br>
-              <span style="color: #0f766e;">✓ ${['А', 'Б', 'В', 'Г'][q.correctIndex]}: ${esc(q.options[q.correctIndex])}</span><br>
+              <span style="color: #0f766e;">✓ ${q.type === 'input' ? ('Правильна відповідь: ' + esc(q.expectedAnswer)) : (['А', 'Б', 'В', 'Г'][q.correctIndex] + ': ' + esc(q.options[q.correctIndex]))}</span><br>
               <small style="color: #444;">${esc(q.explanation || 'Згідно з конспектом теми.')}</small>
             </div>
           `).join('')}
