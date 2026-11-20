@@ -11,8 +11,26 @@
     set(k, v) { try { localStorage.setItem('p8:' + k, JSON.stringify(v)); } catch {} },
   };
 
-  // Допустимі коди доступу вчителя (нечутливі до регістру та пробілів)
-  const VALID_PASSCODES = ['ВЧИТЕЛЬ8', 'TEACHER2026', 'ВЧИТЕЛЬ', 'TEACHER', 'ОСВІТА2026'];
+  // Очищення старих сесій (скидання для всіх попередніх користувачів)
+  const AUTH_VERSION = 'v2_secure';
+  if (store.get('authVersion') !== AUTH_VERSION) {
+    store.set('teacherAuth', null);
+    store.set('authVersion', AUTH_VERSION);
+  }
+
+  // Криптографічний хеш SHA-256 пароля доступу (сам пароль відсутній у вихідному коді)
+  const TEACHER_HASH = '7f3e171155610062546e671937aa21571202817591b9121b5d0fe52e0c1ad408';
+
+  async function sha256Hex(str) {
+    if (window.crypto && crypto.subtle) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    // Простий резервний хеш якщо SubtleCrypto недоступний
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+    return String(h);
+  }
 
   const HUB_INFO = {
     tests: {
@@ -65,15 +83,15 @@
       return store.get('teacherAuth');
     }
 
-    login(passcode) {
+    async login(passcode) {
       if (!passcode) return false;
       const clean = String(passcode).trim().toUpperCase();
-      if (VALID_PASSCODES.includes(clean)) {
+      const hash = await sha256Hex(clean);
+      if (hash === TEACHER_HASH) {
         store.set('teacherAuth', {
           authorized: true,
           role: 'teacher',
-          loginTime: Date.now(),
-          codeName: clean
+          loginTime: Date.now()
         });
         this.updateHeaderButtons();
         return true;
@@ -157,9 +175,6 @@
                   <button type="button" class="auth-toggle-pwd" id="auth-toggle-pwd" title="Показати/приховати код">👁</button>
                 </div>
                 <div class="auth-error-msg" id="auth-error-msg" hidden>Невірний код доступу. Спробуйте ще раз.</div>
-                <div class="auth-hint">
-                  💡 Демо-код для перевірки: <code>ВЧИТЕЛЬ8</code> або <code>teacher2026</code>
-                </div>
                 <div class="auth-actions">
                   <button type="submit" class="auth-submit-btn" id="btn-auth-submit">Увійти як вчитель</button>
                   <button type="button" class="auth-cancel-btn" id="btn-auth-cancel">Скасувати</button>
@@ -187,8 +202,11 @@
         input?.focus();
 
         const form = document.getElementById('teacher-login-form');
-        form?.addEventListener('submit', () => {
-          const ok = this.login(input.value);
+        form?.addEventListener('submit', async () => {
+          const submitBtn = document.getElementById('btn-auth-submit');
+          if (submitBtn) submitBtn.disabled = true;
+          const ok = await this.login(input.value);
+          if (submitBtn) submitBtn.disabled = false;
           if (ok) {
             this.closeModal();
           } else {
