@@ -2492,7 +2492,64 @@ body.auth-modal-open {
 .wm-qlist { list-style: none; padding: 0; margin: 0 0 .8rem; display: flex; flex-direction: column; gap: .3rem; }
 .wm-q { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 6px; padding: .4rem .7rem; font-size: .81rem; color: #d4e5f7; display: flex; gap: .5rem; white-space: pre-line; }
 .wm-qn { color: #00f0ff; font-weight: 700; min-width: 1.6rem; flex-shrink: 0; }
-.wm-panel-btns { display: flex; gap: .6rem; flex-wrap: wrap; }
+.wm-panel-btns { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
 .wm-btn-quiz { font-size: .82rem; padding: .5rem 1rem; }
-.wm-btn-pdf { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.18); color: #c8d6e5; border-radius: 8px; padding: .5rem 1rem; font-size: .82rem; cursor: pointer; }
+.wm-btn-pdf { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.18); color: #c8d6e5; border-radius: 8px; padding: .5rem 1rem; font-size: .82rem; cursor: pointer; transition: all .15s; }
 .wm-btn-pdf:hover { background: rgba(255,255,255,.14); color: #fff; }
+.wm-btn-pdf.primary { background: rgba(0,240,255,.18); border-color: #00f0ff; color: #00f0ff; font-weight: 700; }
+.wm-btn-pdf.primary:hover { background: rgba(0,240,255,.32); color: #fff; box-shadow: 0 0 14px rgba(0,240,255,.3); }
+
+/* Пряма панель налаштування PDF в одному вікні */
+.wm-pdf-bar {
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 10px;
+  padding: .7rem .9rem;
+  margin-bottom: .9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .7rem;
+}
+.wm-pdf-opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  font-size: .8rem;
+  color: #c8d6e5;
+}
+.wm-pdf-opt {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+.wm-pdf-opt select {
+  background: rgba(10, 8, 24, .85);
+  border: 1px solid rgba(0, 240, 255, .3);
+  color: #00f0ff;
+  border-radius: 6px;
+  padding: .25rem .5rem;
+  font-size: .8rem;
+  outline: none;
+}
+.wm-pdf-chk {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  cursor: pointer;
+  color: #7dff4d;
+  font-weight: 600;
+}
+.wm-pdf-chk input {
+  accent-color: #7dff4d;
+  cursor: pointer;
+}
+
+#pdf-export-modal {
+  z-index: 2147483640 !important;
+}
+#wm-overlay {
+  z-index: 2147482550 !important;
+}

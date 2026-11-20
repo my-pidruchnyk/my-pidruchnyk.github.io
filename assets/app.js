@@ -207,21 +207,46 @@
       genBtn.disabled = false; genBtn.textContent = '⚡ Згенерувати';
 
       const preview = document.getElementById('wm-preview');
+      const isTeacher = !!window.isTeacher?.();
       const tabsHtml = generated.map((v, i) =>
-        `<button class="wm-tab${i === 0 ? ' active' : ''}" data-vi="${i}">${v.label}</button>`).join('');
+        `<button type="button" class="wm-tab${i === 0 ? ' active' : ''}" data-vi="${i}">${v.label}</button>`).join('');
+
+      const pdfBarHtml = `
+        <div class="wm-pdf-bar">
+          <div class="wm-pdf-opts">
+            <label class="wm-pdf-opt">
+              <span>Макет PDF:</span>
+              <select id="wm-pdf-layout">
+                <option value="variants" selected>По окремих сторінках (з шапкою учня)</option>
+                <option value="compact">Компактно (2 колонки з лінією відрізу)</option>
+              </select>
+            </label>
+            ${isTeacher ? `
+              <label class="wm-pdf-chk">
+                <input type="checkbox" id="wm-pdf-keys" checked>
+                <span>Ключі з відповідями для вчителя</span>
+              </label>
+            ` : ''}
+          </div>
+          ${generated.length > 1 ? `
+            <button type="button" class="wm-btn-pdf primary" id="wm-btn-pdf-all">📑 Завантажити всі ${generated.length} варіанти у PDF</button>
+          ` : ''}
+        </div>
+      `;
+
       const panelsHtml = generated.map((v, i) => {
         const qList = v.questions.map((q, qi) =>
           `<li class="wm-q"><span class="wm-qn">${qi + 1}.</span>${esc(q.title)}</li>`).join('');
         return `<div class="wm-panel${i !== 0 ? ' wm-hidden' : ''}" data-vi="${i}">
-          <ul class="wm-qlist">${qList}</ul>
           <div class="wm-panel-btns">
-            <button type="button" class="auth-submit-btn wm-btn-quiz" data-vi="${i}">▶ Пройти цей варіант інтерактивно</button>
-            <button type="button" class="wm-btn-pdf" data-vi="${i}">📄 Завантажити PDF</button>
+            <button type="button" class="auth-submit-btn wm-btn-quiz" data-vi="${i}">▶ Пройти ${v.label} інтерактивно</button>
+            <button type="button" class="wm-btn-pdf wm-btn-pdf-single" data-vi="${i}">📄 Завантажити ${v.label} у PDF</button>
           </div>
+          <ul class="wm-qlist">${qList}</ul>
         </div>`;
       }).join('');
 
-      preview.innerHTML = `<div class="wm-tabs">${tabsHtml}</div><div class="wm-panels">${panelsHtml}</div>`;
+      preview.innerHTML = `${pdfBarHtml}<div class="wm-tabs">${tabsHtml}</div><div class="wm-panels">${panelsHtml}</div>`;
 
       preview.querySelectorAll('.wm-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -230,25 +255,56 @@
           preview.querySelectorAll('.wm-panel').forEach(p => p.classList.toggle('wm-hidden', +p.dataset.vi !== vi));
         });
       });
+
       preview.querySelectorAll('.wm-btn-quiz').forEach(btn => {
         btn.addEventListener('click', () => {
           const v = generated[+btn.dataset.vi];
           window.Quiz.openWithQuestions({ book: v.book, questions: v.questions, rangeLabel: v.label });
         });
       });
-      preview.querySelectorAll('.wm-btn-pdf').forEach(btn => {
+
+      const getPdfOptions = () => {
+        const layout = document.getElementById('wm-pdf-layout')?.value || 'variants';
+        const includeKeys = isTeacher && (document.getElementById('wm-pdf-keys')?.checked === true);
+        return { layout, includeKeys };
+      };
+
+      // Пряме завантаження вибраного варіанта в PDF (без 2-го вікна)
+      preview.querySelectorAll('.wm-btn-pdf-single').forEach(btn => {
         btn.addEventListener('click', () => {
           const v = generated[+btn.dataset.vi];
+          const { layout, includeKeys } = getPdfOptions();
           if (window.PdfExport) {
-            window.PdfExport.openExportDialog({
+            window.PdfExport.generateAndPrintPdf({
               subject: v.book?.subject || 'Підручник',
-              title: `${type === 'sr' ? 'СР' : 'КР'} – ${v.label}`,
+              title: `${type === 'sr' ? 'Самостійна робота' : 'Контрольна робота'} (${v.label})`,
               grade: '8 клас',
               questions: v.questions,
-              includeAnswers: !!window.isTeacher?.()
+              variantLabel: v.label,
+              layout,
+              includeKeys
             });
           }
         });
+      });
+
+      // Пряме завантаження всіх варіантів одразу в PDF (без 2-го вікна)
+      document.getElementById('wm-btn-pdf-all')?.addEventListener('click', () => {
+        const { layout, includeKeys } = getPdfOptions();
+        if (window.PdfExport) {
+          window.PdfExport.generateAndPrintPdf({
+            subject: book?.subject || 'Підручник',
+            title: `${type === 'sr' ? 'Самостійна робота' : 'Контрольна робота'} (${generated.length} варіанти)`,
+            grade: '8 клас',
+            variants: generated.map((g, idx) => ({
+              num: idx + 1,
+              label: g.label,
+              questions: g.questions
+            })),
+            layout,
+            includeKeys
+          });
+        }
       });
     });
   }

@@ -172,23 +172,33 @@
         meta = ''
       } = cfg;
 
-      // Підготовка варіантів: Варіант 1 — базовий, Варіант 2 — перемішаний
+      // Підготовка варіантів: або передано масив готових варіантів, або один набір
       const variantsData = [];
-      variantsData.push({ num: 1, questions: [...questions] });
-
-      if (numVariants > 1) {
-        const q2 = questions.map((q, idx) => {
-          // Зберігаємо структуру, але перемішуємо варіанти
-          const originalCorrectText = q.options[q.correctIndex];
-          const shuffledOpts = shuffle(q.options);
-          return {
-            ...q,
-            id: `v2_${idx + 1}`,
-            options: shuffledOpts,
-            correctIndex: shuffledOpts.indexOf(originalCorrectText)
-          };
+      if (Array.isArray(cfg.variants) && cfg.variants.length > 0) {
+        cfg.variants.forEach((v, idx) => {
+          variantsData.push({
+            num: v.num || idx + 1,
+            label: v.label || `Варіант ${idx + 1}`,
+            questions: [...v.questions]
+          });
         });
-        variantsData.push({ num: 2, questions: shuffle(q2) });
+      } else {
+        variantsData.push({ num: 1, label: cfg.variantLabel || 'Варіант 1', questions: [...questions] });
+
+        if (numVariants > 1) {
+          const q2 = questions.map((q, idx) => {
+            // Зберігаємо структуру, але перемішуємо варіанти
+            const originalCorrectText = q.options[q.correctIndex];
+            const shuffledOpts = shuffle(q.options);
+            return {
+              ...q,
+              id: `v2_${idx + 1}`,
+              options: shuffledOpts,
+              correctIndex: shuffledOpts.indexOf(originalCorrectText)
+            };
+          });
+          variantsData.push({ num: 2, label: 'Варіант 2', questions: shuffle(q2) });
+        }
       }
 
       // Генерація HTML-документа
@@ -371,7 +381,7 @@
             <div class="doc-header">
               <div class="doc-title-row">
                 <span class="doc-subj">${esc(subject)}</span>
-                <span class="doc-var">В-${v.num}</span>
+                <span class="doc-var">${esc(v.label || ('В-' + v.num))}</span>
               </div>
               <div class="doc-meta">${esc(title)} · ${esc(grade)}</div>
               <div class="student-form-row">
@@ -406,7 +416,7 @@
         <div class="doc-header">
           <div class="doc-title-row">
             <span class="doc-subj">${esc(subject)} — ${esc(grade)}</span>
-            <span class="doc-var">Варіант ${v.num}</span>
+            <span class="doc-var">${esc(v.label || ('Варіант ' + v.num))}</span>
           </div>
           <div class="doc-meta">${esc(title)}${meta ? ' · ' + esc(meta) : ''}</div>
           <div class="student-form-row">
@@ -445,7 +455,7 @@
       </div>
 
       ${variantsData.map(v => `
-        <h4 style="margin: 14px 0 6px; font-size: 12pt;">Варіант ${v.num} — правильні відповіді</h4>
+        <h4 style="margin: 14px 0 6px; font-size: 12pt;">${esc(v.label || ('Варіант ' + v.num))} — правильні відповіді</h4>
         <table class="keys-table">
           <thead>
             <tr>
