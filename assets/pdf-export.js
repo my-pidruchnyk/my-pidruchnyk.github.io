@@ -91,7 +91,7 @@
             <div class="pdf-cfg-group">
               <label class="pdf-cfg-label" for="pdf-variants-count">Кількість варіантів:</label>
               <select id="pdf-variants-count" class="pdf-select">
-                <option value="1">1 варіант (12 питань)</option>
+                <option value="1">1 варіант (${options.questions ? options.questions.length : 10} питань)</option>
                 <option value="2" selected>2 варіанти (перемішані запитання)</option>
               </select>
             </div>

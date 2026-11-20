@@ -97,7 +97,7 @@
             <div class="wm-slider-row"><span class="wm-sl-lbl">Відкриті короткі</span><input type="range" id="sl-o" min="0" max="100" value="10"><span class="wm-sl-val" id="sv-o">10%</span></div>
             <div class="wm-sl-sum" id="wm-sum">Разом: 100%</div>
           </div>
-          <p class="wm-hint">${type === 'sr' ? '8–10 питань на варіант · один параграф' : 'Рівно 12 питань на варіант · діапазон параграфів'}</p>
+          <p class="wm-hint">${type === 'sr' ? '10 питань на варіант · один параграф' : '10 питань на варіант · діапазон параграфів'}</p>
           <button type="button" class="auth-submit-btn" id="wm-gen">⚡ Згенерувати</button>
           <div id="wm-preview"></div>
         </div>
@@ -189,10 +189,18 @@
       let allTheses = {};
       try { allTheses = (await (await fetch(`books/${slug}/theses.json`)).json()).pages || {}; } catch {}
 
+      const testsPct = +document.getElementById('sl-t').value;
+      const matchPct = +document.getElementById('sl-m').value;
+      const openPct  = +document.getElementById('sl-o').value;
+
       const generated = [];
+      const usedTitles = new Set();
       for (let v = 0; v < variantCount; v++) {
-        const full = window.Quiz.genForRange(book, pFrom, pTo, allTheses);
-        const qs = type === 'sr' ? full.slice(0, 8 + Math.floor(Math.random() * 3)) : full;
+        const qs = window.Quiz.genForRange(book, pFrom, pTo, allTheses, {
+          targetCount: 10,
+          usedTitles,
+          ratios: { tests: testsPct, match: matchPct, open: openPct }
+        });
         generated.push({ label: `Варіант ${WM_ROMAN[v]}`, questions: qs, pFrom, pTo, book, allTheses });
       }
 

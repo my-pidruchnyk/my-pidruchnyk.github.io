@@ -37,11 +37,18 @@
     return (lastSpace > 25 ? cut.slice(0, lastSpace) : cut) + '…';
   }
 
-  /* Універсальний конструктор рівно 12 лаконічних запитань (по 4 варіанти А, Б, В, Г) */
-  function build12Questions({ curTerms = [], curPoints = [], curFormulas = [], poolTerms = [], poolPoints = [], poolFormulas = [] }) {
-    const TARGET_COUNT = 12;
+  /* Універсальний конструктор запитань (10 для СР/КР або 12 для Тестів) */
+  function buildQuestions({
+    curTerms = [],
+    curPoints = [],
+    curFormulas = [],
+    poolTerms = [],
+    poolPoints = [],
+    poolFormulas = []
+  }, targetCount = 10, usedTitles = null, sliderRatios = null) {
+    const TARGET_COUNT = targetCount || 10;
     const questions = [];
-    const usedTitles = new Set();
+    const seenTitles = usedTitles || new Set();
 
     const fallbackTerms = [
       { term: 'Величина', def: 'кількісна характеристика властивості тіла або процесу' },
@@ -55,16 +62,85 @@
       if (poolTerms.length < 15) poolTerms.push(fb);
     }
 
-    // 1. Питання типу "Визначення → Термін" (до 4 шт.)
-    const termsToUse = [...curTerms, ...poolTerms];
+    const cTerms = shuffle(curTerms);
+    const pTerms = shuffle(poolTerms);
+    const cPoints = shuffle(curPoints);
+    const pPoints = shuffle(poolPoints);
+    const cFormulas = shuffle(curFormulas);
+    const pFormulas = shuffle(poolFormulas);
+
+    let targetMatch = 0;
+    let targetOpen = 0;
+    if (sliderRatios) {
+      targetMatch = Math.max(0, Math.round(TARGET_COUNT * (sliderRatios.match || 0) / 100));
+      targetOpen  = Math.max(0, Math.round(TARGET_COUNT * (sliderRatios.open  || 0) / 100));
+      if (targetMatch + targetOpen >= TARGET_COUNT) {
+        targetMatch = Math.min(targetMatch, Math.floor(TARGET_COUNT / 2));
+        targetOpen  = Math.min(targetOpen, TARGET_COUNT - targetMatch - 1);
+      }
+    }
+
+    // 1. Завдання на відповідність (1-А, 2-Б, 3-В)
+    const allTermsForMatch = [...cTerms, ...pTerms];
+    let termMatchIdx = 0;
+    while (questions.filter(q => q.id.startsWith('q_match_')).length < targetMatch && termMatchIdx + 3 <= allTermsForMatch.length && questions.length < TARGET_COUNT) {
+      const trio = allTermsForMatch.slice(termMatchIdx, termMatchIdx + 3);
+      termMatchIdx += 3;
+      const qTitle = 'Установіть відповідність між термінами (1–3) та їх значеннями:\n' +
+        '1. ' + trio[0].term + '\n2. ' + trio[1].term + '\n3. ' + trio[2].term + '\n\n' +
+        'А — ' + shortText(trio[0].def, 45) + '\nБ — ' + shortText(trio[1].def, 45) + '\nВ — ' + shortText(trio[2].def, 45);
+
+      if (seenTitles.has(qTitle)) continue;
+      seenTitles.add(qTitle);
+
+      const correctPattern = '1-А, 2-Б, 3-В';
+      const dists = ['1-Б, 2-А, 3-В', '1-В, 2-Б, 3-А', '1-А, 2-В, 3-Б'];
+      const opts = shuffle([correctPattern, ...dists]);
+
+      questions.push({
+        id: `q_match_${questions.length + 1}`,
+        title: qTitle,
+        options: opts,
+        correctIndex: opts.indexOf(correctPattern),
+        explanation: `Правильна відповідність: ${trio[0].term} — ${trio[0].def}; ${trio[1].term} — ${trio[1].def}; ${trio[2].term} — ${trio[2].def}.`
+      });
+    }
+
+    // 2. Відкриті короткі аналітичні завдання
+    const allPointsForOpen = [...cPoints, ...pPoints];
+    for (const pt of allPointsForOpen) {
+      if (questions.filter(q => q.id.startsWith('q_open_')).length >= targetOpen || questions.length >= TARGET_COUNT) break;
+      const stmt = shortText(pt, 65);
+      const qTitle = `Практичне завдання до тези: «${stmt}».\nЯкий висновок є правильним?`;
+      if (seenTitles.has(qTitle)) continue;
+      seenTitles.add(qTitle);
+
+      const correctOpt = 'Твердження безпосередньо випливає з теоретичного правила';
+      const dists = [
+        'Положення діє лише за особливих штучних умов',
+        'Твердження суперечить основним закономірностям теми',
+        'Положення стосується виключно іншого розділу науки'
+      ];
+      const opts = shuffle([correctOpt, ...dists]);
+      questions.push({
+        id: `q_open_${questions.length + 1}`,
+        title: qTitle,
+        options: opts,
+        correctIndex: opts.indexOf(correctOpt),
+        explanation: `Правильний висновок: «${pt}».`
+      });
+    }
+
+    // 3. Класичні: Визначення → Термін
+    const termsToUse = [...cTerms, ...pTerms];
     for (const item of termsToUse) {
-      if (questions.filter(q => q.id.startsWith('q_term_')).length >= 4 || questions.length >= TARGET_COUNT) break;
+      if (questions.length >= TARGET_COUNT) break;
       const qTitle = `Який термін означає: «${shortText(item.def, 58)}»?`;
-      if (usedTitles.has(qTitle)) continue;
+      if (seenTitles.has(qTitle)) continue;
 
       const correctTerm = item.term;
       const dists = [];
-      for (const other of shuffle(poolTerms)) {
+      for (const other of shuffle(pTerms)) {
         if (dists.length >= 3) break;
         if (other.term !== correctTerm && !dists.includes(other.term)) {
           dists.push(other.term);
@@ -73,7 +149,7 @@
       while (dists.length < 3) dists.push(`Термін ${dists.length + 1}`);
 
       const opts = shuffle([correctTerm, ...dists.slice(0, 3)]);
-      usedTitles.add(qTitle);
+      seenTitles.add(qTitle);
       questions.push({
         id: `q_term_${questions.length + 1}`,
         title: qTitle,
@@ -83,64 +159,55 @@
       });
     }
 
-    // 2. Лаконічні питання за тезами (до 4 шт., 4 варіанти)
-    const pointsToUse = [...curPoints, ...poolPoints];
+    // 4. Класичні: Лаконічні питання за тезами (True/False)
+    const pointsToUse = [...cPoints, ...pPoints];
     for (let i = 0; i < pointsToUse.length; i++) {
-      if (questions.filter(q => q.id.startsWith('q_tf_')).length >= 4 || questions.length >= TARGET_COUNT) break;
+      if (questions.length >= TARGET_COUNT) break;
       const pt = pointsToUse[i];
-      let statement = shortText(pt, 65);
-      const isTrue = (i % 3 !== 2);
-      let qTitle;
+      const statement = shortText(pt, 65);
+      const isTrue = (i % 2 === 0);
+      const qTitle = isTrue
+        ? `Чи правильне твердження: «${statement}»?`
+        : `«${statement}» — чи це твердження помилкове?`;
 
-      if (isTrue) {
-        qTitle = `Чи правильне твердження: «${statement}»?`;
-        if (usedTitles.has(qTitle)) continue;
-        usedTitles.add(qTitle);
-        questions.push({
-          id: `q_tf_${questions.length + 1}`,
-          title: qTitle,
-          options: [
-            'Так, це твердження повністю правильне',
-            'Ні, це твердження є помилковим',
-            'Це твердження стосується іншої теми',
-            'Це твердження діє лише як виняток'
-          ],
-          correctIndex: 0,
-          explanation: `Це твердження повністю правильне: «${pt}».`
-        });
-      } else {
-        qTitle = `«${statement}» — чи це твердження помилкове?`;
-        if (usedTitles.has(qTitle)) continue;
-        usedTitles.add(qTitle);
-        questions.push({
-          id: `q_tf_${questions.length + 1}`,
-          title: qTitle,
-          options: [
-            'Ні, твердження є повністю вірним',
-            'Так, це твердження помилкове',
-            'Твердження стосується зовсім іншого розділу',
-            'Твердження суперечить основним законам'
-          ],
-          correctIndex: 0,
-          explanation: `Це твердження насправді є вірним: «${pt}».`
-        });
-      }
+      if (seenTitles.has(qTitle)) continue;
+      seenTitles.add(qTitle);
+
+      const opts = isTrue ? [
+        'Так, це твердження повністю правильне',
+        'Ні, це твердження є помилковим',
+        'Це твердження стосується іншої теми',
+        'Це твердження діє лише як виняток'
+      ] : [
+        'Ні, твердження є повністю вірним',
+        'Так, це твердження помилкове',
+        'Твердження стосується зовсім іншого розділу',
+        'Твердження суперечить основним законам'
+      ];
+
+      questions.push({
+        id: `q_tf_${questions.length + 1}`,
+        title: qTitle,
+        options: opts,
+        correctIndex: 0,
+        explanation: `Це твердження є науково обґрунтованим: «${pt}».`
+      });
     }
 
-    // 3. Формули (до 2 шт.)
-    const formulasToUse = [...curFormulas, ...poolFormulas];
+    // 5. Формули (якщо є)
+    const formulasToUse = [...cFormulas, ...pFormulas];
     for (const f of formulasToUse) {
-      if (questions.filter(q => q.id.startsWith('q_form_')).length >= 2 || questions.length >= TARGET_COUNT) break;
+      if (questions.length >= TARGET_COUNT) break;
       const qTitle = 'Яка формула стосується цієї теми?';
-      if (usedTitles.has(qTitle)) continue;
+      if (seenTitles.has(qTitle)) continue;
       const dists = [];
-      for (const otherF of shuffle(poolFormulas)) {
+      for (const otherF of shuffle(pFormulas)) {
         if (dists.length >= 3) break;
         if (otherF !== f && !dists.includes(otherF)) dists.push(otherF);
       }
       while (dists.length < 3) dists.push(`x = y · ${dists.length + 2}`);
       const opts = shuffle([f, ...dists.slice(0, 3)]);
-      usedTitles.add(qTitle);
+      seenTitles.add(qTitle);
       questions.push({
         id: `q_form_${questions.length + 1}`,
         title: qTitle,
@@ -150,15 +217,15 @@
       });
     }
 
-    // 4. Питання типу "Термін → Визначення" (до 3 шт.)
+    // 6. Класичні: Термін → Визначення
     for (const item of termsToUse) {
-      if (questions.filter(q => q.id.startsWith('q_def_')).length >= 3 || questions.length >= TARGET_COUNT) break;
+      if (questions.length >= TARGET_COUNT) break;
       const qTitle = `«${item.term}» — це:`;
-      if (usedTitles.has(qTitle)) continue;
+      if (seenTitles.has(qTitle)) continue;
 
       const correctDef = shortText(item.def, 45);
       const dists = [];
-      for (const other of shuffle(poolTerms)) {
+      for (const other of shuffle(pTerms)) {
         if (dists.length >= 3) break;
         const d = shortText(other.def, 45);
         if (d !== correctDef && !dists.includes(d)) dists.push(d);
@@ -166,7 +233,7 @@
       while (dists.length < 3) dists.push(`Параметр стану системи №${dists.length + 1}`);
 
       const opts = shuffle([correctDef, ...dists.slice(0, 3)]);
-      usedTitles.add(qTitle);
+      seenTitles.add(qTitle);
       questions.push({
         id: `q_def_${questions.length + 1}`,
         title: qTitle,
@@ -176,13 +243,17 @@
       });
     }
 
-    // 5. Питання на вибір ключової тези до заповнення 12
+    // 7. Вибір ключового факту з пулу
     for (const pt of pointsToUse) {
       if (questions.length >= TARGET_COUNT) break;
       const qTitle = 'Оберіть правильний факт з теми:';
       const correctOpt = shortText(pt, 50);
+      const titleKey = `${qTitle}:${correctOpt}`;
+      if (seenTitles.has(titleKey)) continue;
+      seenTitles.add(titleKey);
+
       const dists = [];
-      for (const other of shuffle(poolPoints)) {
+      for (const other of shuffle(pPoints)) {
         if (dists.length >= 3) break;
         const d = shortText(other, 50);
         if (d !== correctOpt && !dists.includes(d)) dists.push(d);
@@ -199,7 +270,7 @@
       });
     }
 
-    // Гарантуємо, що кожне питання має рівно 4 варіанти (А, Б, В, Г)
+    // Гарантуємо рівно 4 варіанти (А, Б, В, Г) для кожного питання
     for (const q of questions) {
       while (q.options.length < 4) {
         q.options.push(`Додатковий варіант ${q.options.length + 1}`);
@@ -208,6 +279,8 @@
 
     return questions.slice(0, TARGET_COUNT);
   }
+
+  const build12Questions = (args) => buildQuestions(args, 12);
 
   /* Генератор запитань для однієї сторінки конспекту */
   function generateQuestions(theses, allTheses, pageNum) {
@@ -245,8 +318,8 @@
     return build12Questions({ curTerms, curPoints, curFormulas, poolTerms, poolPoints, poolFormulas });
   }
 
-  /* Генератор 12 запитань за обраним діапазоном параграфів/сторінок */
-  function generateQuestionsForRange(book, pFrom, pTo, allTheses) {
+  /* Генератор запитань за обраним діапазоном параграфів/сторінок */
+  function generateQuestionsForRange(book, pFrom, pTo, allTheses, options = {}) {
     if (!allTheses) return [];
     const fromNum = parseInt(pFrom, 10) || 1;
     const toNum = parseInt(pTo, 10) || fromNum;
@@ -288,7 +361,11 @@
       if (Array.isArray(t.formulas)) for (const f of t.formulas) if (f) poolFormulas.push(f);
     }
 
-    return build12Questions({ curTerms, curPoints, curFormulas, poolTerms, poolPoints, poolFormulas });
+    const targetCount = (typeof options === 'number') ? options : (options && options.targetCount ? options.targetCount : 12);
+    const usedTitles = (options && options.usedTitles instanceof Set) ? options.usedTitles : null;
+    const ratios = (options && options.ratios) ? options.ratios : null;
+
+    return buildQuestions({ curTerms, curPoints, curFormulas, poolTerms, poolPoints, poolFormulas }, targetCount, usedTitles, ratios);
   }
 
   class QuizEngine {
@@ -552,7 +629,7 @@
               <span class="quiz-page-tag">${esc(this.pageLabel)}</span>
             </div>
             <h2 id="quiz-title" class="quiz-title">
-              ${this.isSubmitted ? 'Результати тесту' : 'Тест на 12 питань'}
+              ${this.isSubmitted ? 'Результати тесту' : (this.pageLabel ? `${esc(this.pageLabel)} (${this.questions.length} завдань)` : `Тест на ${this.questions.length} питань`)}
             </h2>
             <div class="quiz-header-actions">
               <button type="button" class="qpdf-btn" id="quiz-btn-pdf" title="Завантажити цей тест у PDF">📄 PDF</button>

@@ -1406,6 +1406,7 @@ body.quiz-open {
   margin: 0;
   font: 700 1.1em/1.35 var(--f-display);
   color: var(--ink);
+  white-space: pre-line;
 }
 
 /* Сітка варіантів відповідей (адаптивна до коротких відповідей) */
@@ -2489,7 +2490,7 @@ body.auth-modal-open {
 .wm-tab.active { background: rgba(0,240,255,.2); border-color: #00f0ff; color: #fff; font-weight: 700; }
 .wm-panel.wm-hidden { display: none; }
 .wm-qlist { list-style: none; padding: 0; margin: 0 0 .8rem; display: flex; flex-direction: column; gap: .3rem; }
-.wm-q { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 6px; padding: .4rem .7rem; font-size: .81rem; color: #d4e5f7; display: flex; gap: .5rem; }
+.wm-q { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 6px; padding: .4rem .7rem; font-size: .81rem; color: #d4e5f7; display: flex; gap: .5rem; white-space: pre-line; }
 .wm-qn { color: #00f0ff; font-weight: 700; min-width: 1.6rem; flex-shrink: 0; }
 .wm-panel-btns { display: flex; gap: .6rem; flex-wrap: wrap; }
 .wm-btn-quiz { font-size: .82rem; padding: .5rem 1rem; }
