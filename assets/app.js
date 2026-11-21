@@ -58,6 +58,572 @@
   const num = n => n.toLocaleString('uk-UA');
   const WM_ROMAN = ['І','ІІ','ІІІ','IV','V','VI'];
 
+  /* ---- Модал Екзамени (Крок 4) ---- */
+  function showExamsModal() {
+    if (document.getElementById('em-overlay')) return;
+    const subjects = state.books.subjects;
+    const overlay = document.createElement('div');
+    overlay.id = 'em-overlay';
+    overlay.className = 'auth-modal-overlay';
+    document.body.appendChild(overlay);
+
+    // Початково обрані популярні предмети
+    const defaultSelected = ['algebra', 'heohrafiia', 'fizyka'];
+
+    overlay.innerHTML = `
+      <div class="auth-modal-backdrop" id="em-bd"></div>
+      <div class="auth-modal-box em-box" role="dialog" aria-modal="true" aria-labelledby="em-title">
+        <header class="auth-modal-head">
+          <h3 id="em-title" class="auth-modal-title">🎓 Конструктор комплексних екзаменів</h3>
+          <button type="button" class="auth-modal-close" id="em-close" aria-label="Закрити">✕</button>
+        </header>
+        <div class="auth-modal-body">
+          <!-- 1. Мультиселект предметів -->
+          <div class="em-section">
+            <label class="em-sec-lbl">Оберіть предмети для екзамену (від 1 до кількох):</label>
+            <div class="em-subj-chips" id="em-subj-chips">
+              ${subjects.map(s => {
+                const checked = defaultSelected.includes(s.slug);
+                return `
+                  <label class="em-chip${checked ? ' active' : ''}">
+                    <input type="checkbox" value="${s.slug}" ${checked ? 'checked' : ''}>
+                    <span>${esc(s.subject)}</span>
+                  </label>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <!-- 2. Ваги предметів (%) з автобалансом до 100% -->
+          <div class="em-section">
+            <div class="em-sec-head">
+              <label class="em-sec-lbl">Розподіл предметних блоків (% питань):</label>
+              <span class="em-sum-badge" id="em-weight-sum">Разом: 100%</span>
+            </div>
+            <div class="em-weights-list" id="em-weights-list"></div>
+          </div>
+
+          <!-- 3. Налаштування обсягу та варіантів -->
+          <div class="em-cfg-grid">
+            <div class="em-cfg-item">
+              <label class="em-field-lbl" for="em-total-q">Обсяг запитань у варіанті:</label>
+              <select id="em-total-q" class="em-select">
+                <option value="20">20 запитань</option>
+                <option value="21">21 запитання</option>
+                <option value="24" selected>24 запитання (оптимально)</option>
+                <option value="25">25 запитань</option>
+              </select>
+            </div>
+            <div class="em-cfg-item">
+              <span class="em-field-lbl">Кількість варіантів:</span>
+              <div class="wm-vbtns" id="em-vbtns">
+                ${WM_ROMAN.slice(0, 4).map((r, i) => `<button type="button" class="wm-vbtn${i === 0 ? ' active' : ''}" data-v="${i + 1}">Варіант ${r}</button>`).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Охоплення параграфів за кожним предметом -->
+          <div class="em-section">
+            <label class="em-sec-lbl">Охоплення навчального матеріалу:</label>
+            <div class="em-ranges-list" id="em-ranges-list"></div>
+          </div>
+
+          <!-- 5. Типи завдань -->
+          <div class="em-section">
+            <div class="em-sec-head">
+              <label class="em-sec-lbl">Співвідношення типів завдань:</label>
+              <span class="em-sum-badge" id="em-types-sum">Разом: 100%</span>
+            </div>
+            <div class="wm-sliders">
+              <div class="wm-slider-row">
+                <span class="wm-sl-lbl">Тести (вибір 1 з 4)</span>
+                <input type="range" id="em-sl-t" min="0" max="100" value="70">
+                <span class="wm-sl-val" id="em-sv-t">70%</span>
+              </div>
+              <div class="wm-slider-row">
+                <span class="wm-sl-lbl">Відповідність (1-А, 2-Б…)</span>
+                <input type="range" id="em-sl-m" min="0" max="100" value="20">
+                <span class="wm-sl-val" id="em-sv-m">20%</span>
+              </div>
+              <div class="wm-slider-row">
+                <span class="wm-sl-lbl">Відкриті (коротке слово/число)</span>
+                <input type="range" id="em-sl-o" min="0" max="100" value="10">
+                <span class="wm-sl-val" id="em-sv-o">10%</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="auth-submit-btn" id="em-gen">⚡ Згенерувати екзамен</button>
+          <div id="em-preview"></div>
+        </div>
+      </div>
+    `;
+
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('auth-modal-open');
+
+    const close = () => { overlay.remove(); document.body.classList.remove('auth-modal-open'); };
+    document.getElementById('em-close').addEventListener('click', close);
+    document.getElementById('em-bd').addEventListener('click', close);
+
+    // Кількість варіантів
+    let variantCount = 1;
+    document.getElementById('em-vbtns').addEventListener('click', e => {
+      const btn = e.target.closest('.wm-vbtn');
+      if (!btn) return;
+      variantCount = +btn.dataset.v;
+      document.querySelectorAll('#em-vbtns .wm-vbtn').forEach(b => b.classList.toggle('active', b === btn));
+    });
+
+    // Слайдери типів завдань (автобаланс до 100%)
+    const TYPE_SL = [
+      { el: document.getElementById('em-sl-t'), val: document.getElementById('em-sv-t') },
+      { el: document.getElementById('em-sl-m'), val: document.getElementById('em-sv-m') },
+      { el: document.getElementById('em-sl-o'), val: document.getElementById('em-sv-o') },
+    ];
+    const typeSumEl = document.getElementById('em-types-sum');
+    TYPE_SL.forEach((s, idx) => {
+      s.el.addEventListener('input', () => {
+        const others = TYPE_SL.filter((_, i) => i !== idx);
+        let excess = TYPE_SL.reduce((a, o) => a + +o.el.value, 0) - 100;
+        if (excess > 0) {
+          for (const o of others) {
+            const cut = Math.min(+o.el.value, excess);
+            o.el.value = +o.el.value - cut;
+            o.val.textContent = o.el.value + '%';
+            excess -= cut;
+            if (excess <= 0) break;
+          }
+        }
+        s.val.textContent = s.el.value + '%';
+        const total = TYPE_SL.reduce((a, o) => a + +o.el.value, 0);
+        typeSumEl.textContent = `Разом: ${total}%`;
+        typeSumEl.style.color = total === 100 ? '' : '#ff4d4d';
+      });
+    });
+
+    // Обрані предмети та їх ваги
+    let selectedSlugs = [...defaultSelected];
+    let subjectWeights = {};
+    const equalShare = Math.floor(100 / selectedSlugs.length);
+    selectedSlugs.forEach((slug, i) => {
+      subjectWeights[slug] = i === 0 ? 100 - equalShare * (selectedSlugs.length - 1) : equalShare;
+    });
+
+    // Кеш завантажених тез
+    const thesesCache = {};
+    async function getBookTheses(slug) {
+      if (thesesCache[slug]) return thesesCache[slug];
+      try {
+        const res = await fetch(`books/${slug}/theses.json`);
+        thesesCache[slug] = (await res.json()).pages || {};
+      } catch {
+        thesesCache[slug] = {};
+      }
+      return thesesCache[slug];
+    }
+
+    // Рендер повзунків ваги предметів та селекторів охоплення
+    async function updateSubjectControls() {
+      const weightsList = document.getElementById('em-weights-list');
+      const rangesList = document.getElementById('em-ranges-list');
+      const weightSumEl = document.getElementById('em-weight-sum');
+
+      if (selectedSlugs.length === 0) {
+        weightsList.innerHTML = '<p class="em-empty-notice">⚠️ Будь ласка, оберіть хоча б один предмет вище.</p>';
+        rangesList.innerHTML = '<p class="em-empty-notice">Немає обраних предметів.</p>';
+        weightSumEl.textContent = 'Разом: 0%';
+        return;
+      }
+
+      // Перевірка та балансування ваг
+      const slugsWithWeights = selectedSlugs.filter(s => subjectWeights[s] != null);
+      if (slugsWithWeights.length !== selectedSlugs.length) {
+        const share = Math.floor(100 / selectedSlugs.length);
+        selectedSlugs.forEach((s, idx) => {
+          subjectWeights[s] = idx === 0 ? 100 - share * (selectedSlugs.length - 1) : share;
+        });
+      }
+
+      // 1. Повзунки ваги
+      weightsList.innerHTML = selectedSlugs.map(slug => {
+        const b = subjects.find(s => s.slug === slug);
+        const w = subjectWeights[slug] ?? 0;
+        return `
+          <div class="em-weight-row" data-slug="${slug}">
+            <div class="em-weight-info">
+              <span class="em-weight-title">${esc(b ? b.subject : slug)}</span>
+              <span class="em-weight-val" id="em-wv-${slug}">${w}%</span>
+            </div>
+            <input type="range" class="em-weight-slider" data-slug="${slug}" min="5" max="100" value="${w}">
+          </div>
+        `;
+      }).join('');
+
+      // Прив'язка подій до повзунків ваги предметів з автобалансом
+      weightsList.querySelectorAll('.em-weight-slider').forEach(slider => {
+        slider.addEventListener('input', () => {
+          const changedSlug = slider.dataset.slug;
+          const newVal = +slider.value;
+          subjectWeights[changedSlug] = newVal;
+          document.getElementById(`em-wv-${changedSlug}`).textContent = newVal + '%';
+
+          const otherSlugs = selectedSlugs.filter(s => s !== changedSlug);
+          if (otherSlugs.length > 0) {
+            let otherSum = otherSlugs.reduce((sum, s) => sum + (subjectWeights[s] || 0), 0);
+            const targetOtherSum = 100 - newVal;
+            if (otherSum <= 0) {
+              const even = Math.floor(targetOtherSum / otherSlugs.length);
+              otherSlugs.forEach((s, idx) => {
+                subjectWeights[s] = idx === 0 ? targetOtherSum - even * (otherSlugs.length - 1) : even;
+              });
+            } else {
+              const ratio = targetOtherSum / otherSum;
+              let accumulated = 0;
+              otherSlugs.forEach((s, idx) => {
+                if (idx === otherSlugs.length - 1) {
+                  subjectWeights[s] = Math.max(0, targetOtherSum - accumulated);
+                } else {
+                  const val = Math.max(0, Math.round(subjectWeights[s] * ratio));
+                  subjectWeights[s] = val;
+                  accumulated += val;
+                }
+              });
+            }
+            // Оновлюємо відображення інших повзунків
+            otherSlugs.forEach(s => {
+              const slEl = weightsList.querySelector(`.em-weight-slider[data-slug="${s}"]`);
+              const valEl = document.getElementById(`em-wv-${s}`);
+              if (slEl) slEl.value = subjectWeights[s];
+              if (valEl) valEl.textContent = subjectWeights[s] + '%';
+            });
+          }
+
+          const totalWeight = selectedSlugs.reduce((sum, s) => sum + (subjectWeights[s] || 0), 0);
+          weightSumEl.textContent = `Разом: ${totalWeight}%`;
+          weightSumEl.style.color = totalWeight === 100 ? '' : '#ff4d4d';
+        });
+      });
+
+      // 2. Селектори охоплення параграфів
+      rangesList.innerHTML = selectedSlugs.map(slug => {
+        const b = subjects.find(s => s.slug === slug);
+        return `
+          <div class="em-range-row" data-slug="${slug}">
+            <span class="em-range-subj">${esc(b ? b.subject : slug)}:</span>
+            <div class="em-range-controls">
+              <label class="em-range-mode">
+                <input type="radio" name="range-mode-${slug}" value="all" checked>
+                <span>Весь підручник</span>
+              </label>
+              <label class="em-range-mode">
+                <input type="radio" name="range-mode-${slug}" value="custom">
+                <span>Діапазон §</span>
+              </label>
+              <div class="em-custom-range em-hidden" id="em-cr-${slug}">
+                <select class="em-pf" id="em-pf-${slug}"></select>
+                <span>—</span>
+                <select class="em-pt" id="em-pt-${slug}"></select>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Завантаження параграфів для кожного обраного предмета
+      for (const slug of selectedSlugs) {
+        const theses = await getBookTheses(slug);
+        const pf = document.getElementById(`em-pf-${slug}`);
+        const pt = document.getElementById(`em-pt-${slug}`);
+        if (!pf || !pt) continue;
+
+        const nums = [...new Set(
+          Object.values(theses)
+            .map(t => { const m = t.title && t.title.match(/§\s*(\d+)/); return m ? +m[1] : null; })
+            .filter(Boolean)
+        )].sort((a, b) => a - b);
+
+        if (nums.length > 0) {
+          nums.forEach(n => {
+            pf.add(new Option(`§ ${n}`, n));
+            pt.add(new Option(`§ ${n}`, n));
+          });
+          pt.value = nums[nums.length - 1];
+        } else {
+          const b = subjects.find(s => s.slug === slug);
+          const pc = b?.pages || 200;
+          for (let p = 1; p <= pc; p += 20) {
+            const end = Math.min(p + 19, pc);
+            pf.add(new Option(`с. ${p}`, p));
+            pt.add(new Option(`с. ${end}`, end));
+          }
+          pt.value = Math.min(60, pc);
+        }
+
+        // Перемикач радіокнопок весь / діапазон
+        const crBox = document.getElementById(`em-cr-${slug}`);
+        const radioModes = rangesList.querySelectorAll(`input[name="range-mode-${slug}"]`);
+        radioModes.forEach(r => {
+          r.addEventListener('change', () => {
+            crBox?.classList.toggle('em-hidden', r.value !== 'custom');
+          });
+        });
+      }
+
+      const totalWeight = selectedSlugs.reduce((sum, s) => sum + (subjectWeights[s] || 0), 0);
+      weightSumEl.textContent = `Разом: ${totalWeight}%`;
+    }
+
+    // Обробка зміни чекбоксів предметів
+    document.getElementById('em-subj-chips').addEventListener('change', e => {
+      const chk = e.target.closest('input[type="checkbox"]');
+      if (!chk) return;
+      const slug = chk.value;
+      chk.closest('.em-chip')?.classList.toggle('active', chk.checked);
+
+      if (chk.checked) {
+        if (!selectedSlugs.includes(slug)) selectedSlugs.push(slug);
+      } else {
+        selectedSlugs = selectedSlugs.filter(s => s !== slug);
+        delete subjectWeights[slug];
+      }
+
+      // Перераховуємо ваги
+      if (selectedSlugs.length > 0) {
+        const share = Math.floor(100 / selectedSlugs.length);
+        selectedSlugs.forEach((s, idx) => {
+          subjectWeights[s] = idx === 0 ? 100 - share * (selectedSlugs.length - 1) : share;
+        });
+      }
+      updateSubjectControls();
+    });
+
+    updateSubjectControls();
+
+    // ⚡ Кнопка Генерації
+    document.getElementById('em-gen').addEventListener('click', async () => {
+      if (selectedSlugs.length === 0) {
+        alert('Будь ласка, оберіть хоча б один предмет для екзамену.');
+        return;
+      }
+
+      const genBtn = document.getElementById('em-gen');
+      genBtn.disabled = true;
+      genBtn.textContent = 'Формую екзаменаційні варіанти…';
+
+      const totalTargetQ = +document.getElementById('em-total-q').value || 24;
+      const testsPct = +document.getElementById('em-sl-t').value;
+      const matchPct = +document.getElementById('em-sl-m').value;
+      const openPct  = +document.getElementById('em-sl-o').value;
+      const ratios = { tests: testsPct, match: matchPct, open: openPct };
+
+      // Розрахунок кількості запитань на кожен предмет
+      const subjectQuestionCounts = {};
+      let allocatedQ = 0;
+      selectedSlugs.forEach((slug, idx) => {
+        if (idx === selectedSlugs.length - 1) {
+          subjectQuestionCounts[slug] = Math.max(1, totalTargetQ - allocatedQ);
+        } else {
+          const count = Math.max(1, Math.round(totalTargetQ * ((subjectWeights[slug] || 0) / 100)));
+          subjectQuestionCounts[slug] = count;
+          allocatedQ += count;
+        }
+      });
+
+      // Збір параметрів діапазонів
+      const subjectRanges = {};
+      for (const slug of selectedSlugs) {
+        const mode = document.querySelector(`input[name="range-mode-${slug}"]:checked`)?.value || 'all';
+        const theses = await getBookTheses(slug);
+        const book = subjects.find(s => s.slug === slug);
+        let pFrom = 1;
+        let pTo = book?.pages || 200;
+
+        if (mode === 'custom') {
+          pFrom = +document.getElementById(`em-pf-${slug}`)?.value || 1;
+          pTo = +document.getElementById(`em-pt-${slug}`)?.value || pFrom;
+        } else {
+          const nums = [...new Set(
+            Object.values(theses)
+              .map(t => { const m = t.title && t.title.match(/§\s*(\d+)/); return m ? +m[1] : null; })
+              .filter(Boolean)
+          )].sort((a, b) => a - b);
+          if (nums.length > 0) {
+            pFrom = nums[0];
+            pTo = nums[nums.length - 1];
+          }
+        }
+        subjectRanges[slug] = { pFrom, pTo, theses, book };
+      }
+
+      // Генерація варіантів з гарантією унікальності запитань між варіантами
+      const generated = [];
+      const usedTitlesBySubject = {};
+      selectedSlugs.forEach(slug => { usedTitlesBySubject[slug] = new Set(); });
+
+      for (let v = 0; v < variantCount; v++) {
+        const variantQuestions = [];
+        for (const slug of selectedSlugs) {
+          const cfg = subjectRanges[slug];
+          const count = subjectQuestionCounts[slug] || 2;
+          const qs = window.Quiz.genForRange(cfg.book, cfg.pFrom, cfg.pTo, cfg.theses, {
+            targetCount: count,
+            usedTitles: usedTitlesBySubject[slug],
+            ratios
+          });
+
+          // Додаємо мітку блоку предмета для кожного питання
+          qs.forEach(q => {
+            q.subjectBlock = cfg.book?.subject || slug;
+          });
+          variantQuestions.push(...qs);
+        }
+
+        generated.push({
+          label: `Варіант ${WM_ROMAN[v]}`,
+          questions: variantQuestions
+        });
+      }
+
+      genBtn.disabled = false;
+      genBtn.textContent = '⚡ Згенерувати екзамен';
+
+      // Рендер результатів (вкладки варіантів, прямий PDF експорт, інтерактив)
+      const preview = document.getElementById('em-preview');
+      const isTeacher = !!window.isTeacher?.();
+
+      const tabsHtml = generated.map((v, i) =>
+        `<button type="button" class="wm-tab${i === 0 ? ' active' : ''}" data-vi="${i}">${v.label}</button>`).join('');
+
+      const pdfBarHtml = `
+        <div class="wm-pdf-bar">
+          <div class="wm-pdf-opts">
+            <label class="wm-pdf-opt">
+              <span>Макет PDF:</span>
+              <select id="em-pdf-layout">
+                <option value="variants" selected>По окремих сторінках (з шапкою учня)</option>
+                <option value="compact">Компактно (2 колонки з лінією відрізу)</option>
+              </select>
+            </label>
+            ${isTeacher ? `
+              <label class="wm-pdf-chk">
+                <input type="checkbox" id="em-pdf-keys" checked>
+                <span>Ключі з відповідями для вчителя</span>
+              </label>
+            ` : ''}
+          </div>
+          ${generated.length > 1 ? `
+            <button type="button" class="wm-btn-pdf primary" id="em-btn-pdf-all">📑 Завантажити всі ${generated.length} варіанти у PDF</button>
+          ` : ''}
+        </div>
+      `;
+
+      const panelsHtml = generated.map((v, i) => {
+        let lastBlock = '';
+        const qList = v.questions.map((q, qi) => {
+          let blockHead = '';
+          if (q.subjectBlock && q.subjectBlock !== lastBlock) {
+            lastBlock = q.subjectBlock;
+            blockHead = `<li class="em-q-block-header">📚 Предметний блок: ${esc(q.subjectBlock)}</li>`;
+          }
+          return `
+            ${blockHead}
+            <li class="wm-q">
+              <span class="wm-qn">${qi + 1}.</span>
+              <span class="em-q-text">${esc(q.title)}</span>
+              ${q.type === 'input' ? '<span class="q-type-badge">Відкрите</span>' : ''}
+            </li>
+          `;
+        }).join('');
+
+        return `
+          <div class="wm-panel${i !== 0 ? ' wm-hidden' : ''}" data-vi="${i}">
+            <div class="wm-panel-btns">
+              <button type="button" class="auth-submit-btn wm-btn-quiz" data-vi="${i}">▶ Пройти ${v.label} інтерактивно (${v.questions.length} завдань)</button>
+              <button type="button" class="wm-btn-pdf em-btn-pdf-single" data-vi="${i}">📄 Завантажити ${v.label} у PDF</button>
+            </div>
+            <ul class="wm-qlist em-qlist">${qList}</ul>
+          </div>
+        `;
+      }).join('');
+
+      preview.innerHTML = `${pdfBarHtml}<div class="wm-tabs">${tabsHtml}</div><div class="wm-panels">${panelsHtml}</div>`;
+
+      // Перемикання вкладок
+      preview.querySelectorAll('.wm-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const vi = +tab.dataset.vi;
+          preview.querySelectorAll('.wm-tab').forEach(t => t.classList.toggle('active', t === tab));
+          preview.querySelectorAll('.wm-panel').forEach(p => p.classList.toggle('wm-hidden', +p.dataset.vi !== vi));
+        });
+      });
+
+      // Інтерактивне проходження екзамену
+      preview.querySelectorAll('.wm-btn-quiz').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const v = generated[+btn.dataset.vi];
+          const em = document.getElementById('em-overlay');
+          if (em) em.style.display = 'none';
+
+          window.Quiz.openWithQuestions({
+            book: { subject: 'Комплексний екзамен' },
+            questions: v.questions,
+            rangeLabel: `Підсумковий екзамен · ${v.label}`,
+            onClose: () => {
+              if (em) em.style.display = '';
+            }
+          });
+        });
+      });
+
+      const getPdfOptions = () => {
+        const layout = document.getElementById('em-pdf-layout')?.value || 'variants';
+        const includeKeys = isTeacher && (document.getElementById('em-pdf-keys')?.checked === true);
+        return { layout, includeKeys };
+      };
+
+      const examTitle = `Комплексний екзамен (${selectedSlugs.map(s => subjects.find(b => b.slug === s)?.subject || s).join(', ')})`;
+
+      // Завантажити поточний варіант у PDF
+      preview.querySelectorAll('.em-btn-pdf-single').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const v = generated[+btn.dataset.vi];
+          const { layout, includeKeys } = getPdfOptions();
+          if (window.PdfExport) {
+            window.PdfExport.generateAndPrintPdf({
+              subject: 'Комплексний екзамен',
+              title: `${examTitle} — ${v.label}`,
+              grade: '8 клас',
+              questions: v.questions,
+              variantLabel: v.label,
+              layout,
+              includeKeys
+            });
+          }
+        });
+      });
+
+      // Завантажити всі варіанти одразу в PDF
+      document.getElementById('em-btn-pdf-all')?.addEventListener('click', () => {
+        const { layout, includeKeys } = getPdfOptions();
+        if (window.PdfExport) {
+          window.PdfExport.generateAndPrintPdf({
+            subject: 'Комплексний екзамен',
+            title: `${examTitle} (${generated.length} варіанти)`,
+            grade: '8 клас',
+            variants: generated.map((g, idx) => ({
+              num: idx + 1,
+              label: g.label,
+              questions: g.questions
+            })),
+            layout,
+            includeKeys
+          });
+        }
+      });
+    });
+  }
+
   /* ---- Модал СР / КР ---- */
   function showWorkModal(type) {
     if (document.getElementById('wm-overlay')) return;
@@ -403,7 +969,7 @@
               <button type="button" class="cy-hub-card" data-hub="exams" style="--hub-c: #ffe14d;">
                 <div class="cy-hub-head">
                   <span class="cy-hub-ico" aria-hidden="true">🎓</span>
-                  <span class="cy-hub-badge soon">Заглушка</span>
+                  <span class="cy-hub-badge ready">Активно</span>
                 </div>
                 <h4 class="cy-hub-title">Екзамени</h4>
                 <p class="cy-hub-desc">Підсумкова річна атестація та комплексні зрізи</p>
@@ -443,6 +1009,7 @@
       card.addEventListener('click', () => {
         if (hub === 'sr') showWorkModal('sr');
         else if (hub === 'kr') showWorkModal('kr');
+        else if (hub === 'exams') showExamsModal();
         else window.TeacherAuth?.openHubModal(hub);
       });
     });

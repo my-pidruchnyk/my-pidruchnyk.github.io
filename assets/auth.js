@@ -12,14 +12,14 @@
   };
 
   // Очищення старих сесій (скидання для всіх попередніх користувачів)
-  const AUTH_VERSION = 'v2_secure';
+  const AUTH_VERSION = 'v3_secure_reset';
   if (store.get('authVersion') !== AUTH_VERSION) {
     store.set('teacherAuth', null);
     store.set('authVersion', AUTH_VERSION);
   }
 
   // Криптографічний хеш SHA-256 пароля доступу (сам пароль відсутній у вихідному коді)
-  const TEACHER_HASH = '7f3e171155610062546e671937aa21571202817591b9121b5d0fe52e0c1ad408';
+  const TEACHER_HASH = '5a5db6f1347483b1019bc66cd976640ea38bc7c1115f8dbc349847288f5c60d1';
 
   async function sha256Hex(str) {
     if (window.crypto && crypto.subtle) {

@@ -391,25 +391,30 @@
             </div>
 
             <div class="questions-container">
-              ${v.questions.map((q, idx) => `
-                <div class="q-item">
-                  <div class="q-title">${idx + 1}. ${esc(q.title)}</div>
-                  ${q.type === 'input' ? `
-                    <div style="margin: 6px 0; font-size: 9.5pt; color: #222;">
-                      <strong>Відповідь:</strong> ____________________________
-                    </div>
-                  ` : `
-                    <div class="q-opts-grid">
-                      ${q.options.map((opt, oIdx) => `
-                        <div class="q-opt">
-                          <span class="q-letter">${['А', 'Б', 'В', 'Г'][oIdx]})</span>
-                          <span>${esc(opt)}</span>
-                        </div>
-                      `).join('')}
-                    </div>
-                  `}
-                </div>
-              `).join('')}
+              ${v.questions.map((q, idx) => {
+                const prevQ = v.questions[idx - 1];
+                const showSubjHeader = q.subjectBlock && (!prevQ || prevQ.subjectBlock !== q.subjectBlock);
+                return `
+                  ${showSubjHeader ? `<div style="font-weight: bold; font-size: 11pt; color: #1e3a8a; border-bottom: 1.5px solid #3b82f6; padding: 4px 0 2px; margin: 8px 0 4px; text-transform: uppercase;">📚 ${esc(q.subjectBlock)}</div>` : ''}
+                  <div class="q-item">
+                    <div class="q-title">${idx + 1}. ${esc(q.title)}</div>
+                    ${q.type === 'input' ? `
+                      <div style="margin: 6px 0; font-size: 9.5pt; color: #222;">
+                        <strong>Відповідь:</strong> ____________________________
+                      </div>
+                    ` : `
+                      <div class="q-opts-grid">
+                        ${q.options.map((opt, oIdx) => `
+                          <div class="q-opt">
+                            <span class="q-letter">${['А', 'Б', 'В', 'Г'][oIdx]})</span>
+                            <span>${esc(opt)}</span>
+                          </div>
+                        `).join('')}
+                      </div>
+                    `}
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
         `).join('')}
@@ -433,25 +438,30 @@
         </div>
 
         <div class="questions-container">
-          ${v.questions.map((q, idx) => `
-            <div class="q-item">
-              <div class="q-title">${idx + 1}. ${esc(q.title)}</div>
-              ${q.type === 'input' ? `
-                <div style="margin: 8px 0 6px; font-size: 10.5pt; color: #222;">
-                  <strong>Відповідь:</strong> ___________________________________________________________
-                </div>
-              ` : `
-                <div class="q-opts-grid">
-                  ${q.options.map((opt, oIdx) => `
-                    <div class="q-opt">
-                      <span class="q-letter">${['А', 'Б', 'В', 'Г'][oIdx]})</span>
-                      <span>${esc(opt)}</span>
-                    </div>
-                  `).join('')}
-                </div>
-              `}
-            </div>
-          `).join('')}
+          ${v.questions.map((q, idx) => {
+            const prevQ = v.questions[idx - 1];
+            const showSubjHeader = q.subjectBlock && (!prevQ || prevQ.subjectBlock !== q.subjectBlock);
+            return `
+              ${showSubjHeader ? `<div style="font-weight: bold; font-size: 12pt; color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding: 6px 0 3px; margin: 12px 0 6px; text-transform: uppercase;">📚 ${esc(q.subjectBlock)}</div>` : ''}
+              <div class="q-item">
+                <div class="q-title">${idx + 1}. ${esc(q.title)}</div>
+                ${q.type === 'input' ? `
+                  <div style="margin: 8px 0 6px; font-size: 10.5pt; color: #222;">
+                    <strong>Відповідь:</strong> ___________________________________________________________
+                  </div>
+                ` : `
+                  <div class="q-opts-grid">
+                    ${q.options.map((opt, oIdx) => `
+                      <div class="q-opt">
+                        <span class="q-letter">${['А', 'Б', 'В', 'Г'][oIdx]})</span>
+                        <span>${esc(opt)}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                `}
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `).join('')}
