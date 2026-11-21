@@ -2640,10 +2640,35 @@ body.auth-modal-open {
   z-index: 2147482550 !important;
 }
 .em-box {
-  max-width: 860px !important;
-  width: 95% !important;
+  max-width: 680px !important;
+  width: 92vw !important;
+  max-height: 85vh !important;
   border-color: rgba(255, 225, 77, .35) !important;
   box-shadow: 0 0 35px rgba(255, 225, 77, .15) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.em-box .auth-modal-body {
+  overflow-y: auto !important;
+  max-height: calc(85vh - 75px) !important;
+  padding: 1.1rem 1.25rem !important;
+  scrollbar-width: thin;
+  scrollbar-color: #ffe14d rgba(255, 255, 255, .08);
+}
+.em-box .auth-modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+.em-box .auth-modal-body::-webkit-scrollbar-track {
+  background: rgba(10, 8, 24, .6);
+  border-radius: 4px;
+}
+.em-box .auth-modal-body::-webkit-scrollbar-thumb {
+  background: #ffe14d;
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(255, 225, 77, .4);
+}
+.em-box .auth-modal-body::-webkit-scrollbar-thumb:hover {
+  background: #fff085;
 }
 .em-section {
   background: rgba(255, 255, 255, .03);
