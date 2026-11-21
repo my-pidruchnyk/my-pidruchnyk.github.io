@@ -28,6 +28,91 @@
     return a;
   }
 
+  /* ---------- Банк помилок: localStorage `p8:mistakes` ----------
+     Кожне неправильно розв'язане питання (з будь-якого тесту) зберігається один раз; правильна відповідь
+     у режимі «Банк помилок» одразу прибирає його з банку. Ключ проти дублів — предмет + текст питання +
+     правильна відповідь (id питань генеруються заново щоразу, а порядок варіантів перемішується). */
+  const MB_KEY = 'mistakes';
+  const norm = s => String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const isAnswered = a => a !== null && a !== undefined && String(a).trim() !== '';
+
+  // одна перевірка «правильно / ні» для всього модуля (та сама, що й у результатах тесту)
+  function isAnswerCorrect(q, ans) {
+    if (q.type === 'input') {
+      const user = String(ans ?? '').trim().toLowerCase();
+      const exp = String(q.expectedAnswer ?? '').trim().toLowerCase();
+      return user.length > 0 && user === exp;
+    }
+    return ans === q.correctIndex;
+  }
+
+  const correctTextOf = q => q.type === 'input' ? String(q.expectedAnswer ?? '') : String(q.options?.[q.correctIndex] ?? '');
+
+  // 1 питання, 2–4 питання, 5+ питань (11–14 — питань)
+  function questionsWord(n) {
+    const d = n % 10, h = n % 100;
+    return (d === 1 && h !== 11) || (d >= 2 && d <= 4 && (h < 12 || h > 14)) ? 'питання' : 'питань';
+  }
+
+  const MistakeBank = {
+    all() { const v = store.get(MB_KEY); return Array.isArray(v) ? v : []; },
+    count() { return this.all().length; },
+    keyOf(subject, q) { return norm(subject) + '|' + norm(q.title) + '|' + norm(correctTextOf(q)); },
+    write(list) { store.set(MB_KEY, list); this.notify(); },
+
+    /* додати помилки; повертає, скільки з них нових (решта вже були в банку — оновлюємо, не дублюємо) */
+    add(entries) {
+      const list = this.all();
+      const byKey = new Map(list.map(e => [e.key, e]));
+      let fresh = 0;
+      for (const e of entries) {
+        const old = byKey.get(e.key);
+        if (old) {
+          Object.assign(old, e, { addedAt: old.addedAt, wrongCount: (old.wrongCount || 1) + 1, lastWrongAt: Date.now() });
+        } else {
+          const rec = { ...e, wrongCount: 1, addedAt: Date.now(), lastWrongAt: Date.now() };
+          list.push(rec); byKey.set(e.key, rec); fresh++;
+        }
+      }
+      if (entries.length) this.write(list);
+      return fresh;
+    },
+    remove(keys) {
+      if (!keys.length) return;
+      const drop = new Set(keys);
+      this.write(this.all().filter(e => !drop.has(e.key)));
+    },
+    bumpWrong(keys) {
+      if (!keys.length) return;
+      const hit = new Set(keys);
+      this.write(this.all().map(e => hit.has(e.key) ? { ...e, wrongCount: (e.wrongCount || 1) + 1, lastWrongAt: Date.now() } : e));
+    },
+    clear() { this.write([]); },
+
+    /* { предмет: кількість } — для вікна вибору */
+    bySubject() {
+      const m = new Map();
+      for (const e of this.all()) m.set(e.subject, (m.get(e.subject) || 0) + 1);
+      return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'uk'));
+    },
+
+    badgeText(n = this.count()) { return n ? `${n} ${questionsWord(n)}` : 'Порожньо'; },
+    footText(n = this.count()) { return n ? 'Повторити помилки' : 'Помилок поки немає'; },
+
+    /* оновити лічильники на сторінці (картка на головній) без перемальовування */
+    notify() {
+      const n = this.count();
+      document.querySelectorAll('[data-mistakes-badge]').forEach(el => {
+        el.textContent = this.badgeText(n);
+        el.classList.toggle('has', n > 0);
+      });
+      document.querySelectorAll('[data-mistakes-foot]').forEach(el => { el.textContent = this.footText(n); });
+      window.dispatchEvent(new CustomEvent('p8:mistakes-changed', { detail: { count: n } }));
+    },
+  };
+  // зміни з іншої вкладки
+  window.addEventListener('storage', e => { if (e.key === 'p8:' + MB_KEY) MistakeBank.notify(); });
+
   function shortText(text, max = 68) {
     if (!text) return '';
     const clean = String(text).replace(/\s+/g, ' ').trim();
@@ -395,6 +480,10 @@
       this.answers = [];
       this.isSubmitted = false;
       this.onNextPage = null;
+      this.mode = 'normal';         // 'mistakes' — проходження «Банку помилок»
+      this.sectionLabel = '';       // параграф/сторінка — для запису помилок у банк
+      this.bankResult = null;       // підсумок для банку після «Перевірити»
+      this.mbSubject = null;        // предмет, обраний у «Банку помилок» (null — усі)
 
       this.initModalContainer();
       this.initGlobalEvents();
@@ -481,6 +570,10 @@
       this.theses = theses?.[String(page)] || null;
       this.allTheses = theses;
       this.onNextPage = onNextPage;
+      this.onClose = null;
+      this.mode = 'normal';
+      this.bankResult = null;
+      this.sectionLabel = `с. ${this.pageLabel}` + (this.theses?.title ? ` · ${this.theses.title}` : '');
 
       this.questions = generateQuestions(this.theses, this.allTheses, this.page);
       this.answers = new Array(this.questions.length).fill(null);
@@ -494,7 +587,7 @@
     }
 
     /* Відкриття тесту з готовими питаннями (для СР/КР preview) */
-    openWithQuestions({ book, questions, rangeLabel, onClose }) {
+    openWithQuestions({ book, questions, rangeLabel, onClose, sectionLabel, mode }) {
       this.book = book;
       this.page = 1;
       this.pageLabel = rangeLabel || '';
@@ -502,6 +595,9 @@
       this.allTheses = null;
       this.onNextPage = null;
       this.onClose = onClose || null;
+      this.mode = mode || 'normal';
+      this.bankResult = null;
+      this.sectionLabel = sectionLabel || rangeLabel || '';
       this.questions = questions;
       this.answers = new Array(questions.length).fill(null);
       this.isSubmitted = false;
@@ -521,6 +617,9 @@
       this.allTheses = allTheses;
       this.onNextPage = null;
       this.onClose = null;
+      this.mode = 'normal';
+      this.bankResult = null;
+      this.sectionLabel = this.pageLabel;
 
       this.questions = generateQuestionsForRange(book, paragraphFrom, paragraphTo, allTheses);
       this.answers = new Array(this.questions.length).fill(null);
@@ -623,11 +722,169 @@
     submitTest() {
       this.closeConfirm();
       this.isSubmitted = true;
+      this.recordToBank();
       this.render();
       this.applyFontScale();
 
       const wrap = document.getElementById('quiz-scrollable');
       if (wrap) wrap.scrollTop = 0;
+    }
+
+    /* Після «Перевірити»: звичайний тест → неправильні відповіді в банк;
+       тест з банку → правильно розв'язані одразу видаляються з банку. */
+    recordToBank() {
+      if (this.mode === 'mistakes') {
+        const solved = [], wrongAgain = [];
+        this.questions.forEach((q, i) => {
+          if (isAnswerCorrect(q, this.answers[i])) solved.push(q.mbKey);
+          else if (isAnswered(this.answers[i])) wrongAgain.push(q.mbKey);   // без відповіді — просто лишається
+        });
+        MistakeBank.remove(solved);
+        MistakeBank.bumpWrong(wrongAgain);
+        this.bankResult = { mode: 'mistakes', solved: solved.length, left: MistakeBank.count(),
+          leftHere: this.mbSubject ? MistakeBank.all().filter(e => e.subject === this.mbSubject).length : MistakeBank.count() };
+        return;
+      }
+      const entries = [];
+      this.questions.forEach((q, i) => {
+        const ans = this.answers[i];
+        if (!isAnswered(ans) || isAnswerCorrect(q, ans)) return;   // зберігаємо лише дані неправильні відповіді
+        const subject = q.subjectBlock || this.book?.subject || 'Підручник';
+        entries.push({
+          key: MistakeBank.keyOf(subject, q),
+          subject,
+          slug: this.book?.slug || null,
+          section: q.sectionBlock || this.sectionLabel || this.pageLabel || '',
+          type: q.type === 'input' ? 'input' : 'choice',
+          title: q.title,
+          options: Array.isArray(q.options) ? [...q.options] : [],
+          correctIndex: q.type === 'input' ? null : q.correctIndex,
+          correctText: correctTextOf(q),
+          expectedAnswer: q.type === 'input' ? q.expectedAnswer : null,
+          explanation: q.explanation || '',
+        });
+      });
+      const fresh = MistakeBank.add(entries);
+      this.bankResult = { mode: 'normal', wrong: entries.length, fresh, total: MistakeBank.count() };
+    }
+
+    /* Тест з «Банку помилок»: усі помилки або одного предмета */
+    openMistakes(subject = null) {
+      const recs = MistakeBank.all().filter(e => !subject || e.subject === subject);
+      if (!recs.length) { this.openMistakesChooser(); return; }
+      const questions = recs.map((e, i) => {
+        const base = { id: `mb_${i + 1}`, mbKey: e.key, title: e.title, explanation: e.explanation,
+          subjectBlock: e.subject, sectionBlock: e.section };
+        if (e.type === 'input') return { ...base, type: 'input', expectedAnswer: e.expectedAnswer, options: [] };
+        // варіанти перемішуємо заново — щоб не запам'ятовувати «правильна — друга»
+        const opts = shuffle(e.options);
+        return { ...base, options: opts, correctIndex: opts.indexOf(e.correctText) };
+      });
+      this.mbSubject = subject;
+      this.openWithQuestions({
+        book: { subject: subject || 'Усі предмети' },   // мітка 1 — предмет, мітка 2 — «Банк помилок»
+        questions,
+        rangeLabel: 'Банк помилок',
+        mode: 'mistakes',
+      });
+    }
+
+    /* Вікно вибору: пройти всі помилки або обрати предмет */
+    openMistakesChooser() {
+      let modal = document.getElementById('mistakes-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'mistakes-modal';
+        modal.className = 'auth-modal-overlay';
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(modal);
+      }
+      const n = MistakeBank.count();
+      const subjects = MistakeBank.bySubject();
+      modal.innerHTML = `
+        <div class="auth-modal-backdrop" id="mb-backdrop"></div>
+        <div class="auth-modal-box mb-modal-box" role="dialog" aria-modal="true" aria-labelledby="mb-title">
+          <header class="auth-modal-head">
+            <span class="auth-head-ico mb-head-ico" aria-hidden="true">🔁</span>
+            <div class="pdf-head-meta">
+              <h3 id="mb-title" class="auth-modal-title">Банк помилок</h3>
+              <span class="pdf-sub">Питання, у яких ви помилились у тестах</span>
+            </div>
+            <button type="button" class="auth-modal-close" id="mb-close-btn" aria-label="Закрити">✕</button>
+          </header>
+          <div class="auth-modal-body">
+            ${n === 0 ? `
+              <div class="mb-empty">
+                <div class="mb-empty-ico" aria-hidden="true">🎉</div>
+                <p><strong>Поки що помилок немає.</strong></p>
+                <p>Пройдіть будь-який тест — питання, на які ви відповісте неправильно, з'являться тут автоматично.
+                   Кожне зникне з банку, щойно ви відповісте на нього правильно.</p>
+              </div>
+              <div class="auth-actions"><button type="button" class="auth-submit-btn" id="mb-ok"><span>Зрозуміло</span></button></div>
+            ` : `
+              <p class="auth-intro">
+                У банку <strong>${n} ${questionsWord(n)}</strong>. Відповісте правильно хоча б раз — питання
+                одразу зникне з банку.
+              </p>
+              <div class="auth-actions">
+                <button type="button" class="auth-submit-btn" id="mb-all">
+                  <span>🔁 Пройти всі помилки (${n})</span><span class="cy-arr">→</span>
+                </button>
+              </div>
+              ${subjects.length > 1 ? `
+                <p class="mb-or">або оберіть предмет:</p>
+                <div class="mb-subj-list">
+                  ${subjects.map(([s, c]) => `
+                    <button type="button" class="mb-subj" data-subject="${esc(s)}">
+                      <span class="mb-subj-name">${esc(s)}</span>
+                      <span class="mb-subj-count">${c} ${questionsWord(c)}</span>
+                    </button>`).join('')}
+                </div>` : ''}
+              <button type="button" class="mb-clear" id="mb-clear">Очистити банк помилок</button>
+            `}
+          </div>
+        </div>`;
+
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('auth-modal-open');
+      const close = () => {
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = '';
+        document.body.classList.remove('auth-modal-open');
+        document.removeEventListener('keydown', onKey);
+      };
+      const onKey = e => { if (e.key === 'Escape') close(); };
+      document.addEventListener('keydown', onKey);
+      modal.querySelector('#mb-backdrop').addEventListener('click', close);
+      modal.querySelector('#mb-close-btn').addEventListener('click', close);
+      modal.querySelector('#mb-ok')?.addEventListener('click', close);
+      modal.querySelector('#mb-all')?.addEventListener('click', () => { close(); this.openMistakes(null); });
+      modal.querySelectorAll('.mb-subj').forEach(b => b.addEventListener('click', () => { close(); this.openMistakes(b.dataset.subject); }));
+      modal.querySelector('#mb-clear')?.addEventListener('click', () => {
+        if (confirm(`Видалити всі ${n} ${questionsWord(n)} з «Банку помилок»? Цю дію не можна скасувати.`)) {
+          MistakeBank.clear();
+          close();
+        }
+      });
+      (modal.querySelector('#mb-all') || modal.querySelector('#mb-ok'))?.focus();
+    }
+
+    /* Рядок про «Банк помилок» у підсумку тесту */
+    bankNoteHTML() {
+      const r = this.bankResult;
+      if (!r) return '';
+      if (r.mode === 'mistakes') {
+        const solved = r.solved
+          ? `✅ Вивчено й прибрано з банку: <strong>${r.solved} ${questionsWord(r.solved)}</strong>.`
+          : 'Цього разу жодне питання не прибрано з банку — спробуйте ще раз.';
+        const left = r.left ? ` У банку лишилось: <strong>${r.left} ${questionsWord(r.left)}</strong>.` : ' 🎉 Банк помилок порожній!';
+        return `<p class="qfs-bank">${solved}${left}</p>`;
+      }
+      if (!r.wrong) return '';
+      const added = r.fresh
+        ? `📌 До «Банку помилок» додано: <strong>${r.fresh} ${questionsWord(r.fresh)}</strong>`
+        : '📌 Ці помилки вже є в «Банку помилок»';
+      return `<p class="qfs-bank">${added} (усього в банку: ${r.total}). Повторіть їх з головної сторінки — картка «Банк помилок».</p>`;
     }
 
     /* Рендеринг основного вікна тесту */
@@ -637,14 +894,7 @@
       let score = 0;
 
       if (this.isSubmitted) {
-        score = this.questions.reduce((acc, q, idx) => {
-          if (q.type === 'input') {
-            const user = String(this.answers[idx] ?? '').trim().toLowerCase();
-            const exp = String(q.expectedAnswer ?? '').trim().toLowerCase();
-            return acc + (user === exp && user.length > 0 ? 1 : 0);
-          }
-          return acc + (this.answers[idx] === q.correctIndex ? 1 : 0);
-        }, 0);
+        score = this.questions.reduce((acc, q, idx) => acc + (isAnswerCorrect(q, this.answers[idx]) ? 1 : 0), 0);
       }
 
       this.el.innerHTML = `
@@ -682,15 +932,8 @@
                   let isCorrect = false;
 
                   if (this.isSubmitted) {
-                    if (isOpen) {
-                      const user = String(userAnswer ?? '').trim().toLowerCase();
-                      const exp = String(q.expectedAnswer ?? '').trim().toLowerCase();
-                      isCorrect = (user === exp && user.length > 0);
-                      isWrong = !isCorrect;
-                    } else {
-                      isWrong = userAnswer !== q.correctIndex;
-                      isCorrect = userAnswer === q.correctIndex;
-                    }
+                    isCorrect = isAnswerCorrect(q, userAnswer);
+                    isWrong = !isCorrect;
                   }
 
                   return `
@@ -698,6 +941,7 @@
                       <div class="quiz-q-num">
                         <span>Питання ${idx + 1} з ${total}</span>
                         ${isOpen ? '<span class="q-type-badge">Коротка відповідь (1 слово/число)</span>' : ''}
+                        ${this.mode === 'mistakes' ? `<span class="q-src-badge">${esc(q.subjectBlock)}${q.sectionBlock ? ' · ' + esc(q.sectionBlock) : ''}</span>` : ''}
                         ${this.isSubmitted ? (
                           isCorrect 
                             ? '<span class="q-status-badge ok">✓ Правильно</span>' 
@@ -760,6 +1004,7 @@
                       ? 'Ви блискуче засвоїли матеріал обраної теми. Результати можна роздрукувати або зберегти у PDF!' 
                       : 'Ознайомтеся з детальним розбором вище, щоб заповнити прогалини та краще запам\'ятати тему.'}
                   </p>
+                  ${this.bankNoteHTML()}
                   <div class="qfs-buttons">
                     <button type="button" class="qfs-btn-secondary" id="btn-quiz-pdf-export">
                       📄 Завантажити у PDF
@@ -770,9 +1015,15 @@
                         <span class="qfs-arr">→</span>
                       </button>
                     ` : ''}
-                    <button type="button" class="qfs-btn-secondary" id="btn-retry-quiz">
-                      ↺ Пройти ще раз
-                    </button>
+                    ${this.mode !== 'mistakes' ? `
+                      <button type="button" class="qfs-btn-secondary" id="btn-retry-quiz">
+                        ↺ Пройти ще раз
+                      </button>
+                    ` : (this.bankResult?.leftHere ? `
+                      <button type="button" class="qfs-btn-primary" id="btn-retry-quiz">
+                        <span>🔁 Пройти залишок (${this.bankResult.leftHere})</span>
+                      </button>
+                    ` : '')}
                     <button type="button" class="qfs-btn-ghost" id="btn-done-reading">
                       Повернутися
                     </button>
@@ -860,6 +1111,8 @@
       });
 
       document.getElementById('btn-retry-quiz')?.addEventListener('click', () => {
+        // у «Банку помилок» — лише те, що лишилось (розв'язане вже прибрано)
+        if (this.mode === 'mistakes') { this.openMistakes(this.mbSubject); return; }
         this.answers = new Array(this.questions.length).fill(null);
         this.isSubmitted = false;
         this.render();
@@ -1064,4 +1317,5 @@
 
   window.Quiz = new QuizEngine();
   window.Quiz.genForRange = generateQuestionsForRange;
+  window.MistakeBank = MistakeBank;
 })();

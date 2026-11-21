@@ -473,8 +473,12 @@
           });
 
           // Додаємо мітку блоку предмета для кожного питання
+          // § у заголовках тез є не в усіх книжках — тоді діапазон це сторінки
+          const hasPara = Object.values(cfg.theses || {}).some(t => /§\s*\d/.test(t?.title || ''));
+          const sectionBlock = `${hasPara ? '§' : 'с.'} ${cfg.pFrom}${cfg.pTo !== cfg.pFrom ? '–' + cfg.pTo : ''}`;
           qs.forEach(q => {
             q.subjectBlock = cfg.book?.subject || slug;
+            q.sectionBlock = sectionBlock;
           });
           variantQuestions.push(...qs);
         }
@@ -767,7 +771,10 @@
           usedTitles,
           ratios: { tests: testsPct, match: matchPct, open: openPct }
         });
-        generated.push({ label: `Варіант ${WM_ROMAN[v]}`, questions: qs, pFrom, pTo, book, allTheses });
+        // підпис діапазону для «Банку помилок» — як у списках вибору (§ … або сторінки)
+        const sectionLabel = [pfSel.selectedOptions[0]?.text, ptSel?.selectedOptions[0]?.text]
+          .filter(Boolean).filter((t, i, a) => a.indexOf(t) === i).join(' – ');
+        generated.push({ label: `Варіант ${WM_ROMAN[v]}`, questions: qs, pFrom, pTo, book, allTheses, sectionLabel });
       }
 
       genBtn.disabled = false; genBtn.textContent = '⚡ Згенерувати';
@@ -832,6 +839,7 @@
             book: v.book,
             questions: v.questions,
             rangeLabel: `${v.book?.subject || 'Підручник'} · ${v.label}`,
+            sectionLabel: v.sectionLabel,
             onClose: () => {
               if (wm) wm.style.display = '';
             }
@@ -978,6 +986,20 @@
                   <span class="cy-arr" aria-hidden="true">→</span>
                 </div>
               </button>
+
+              <!-- Банк помилок: колір — з активної теми (CSS-змінні), лічильник оновлює quiz.js (MistakeBank) -->
+              <button type="button" class="cy-hub-card hub-mistakes" data-hub="mistakes">
+                <div class="cy-hub-head">
+                  <span class="cy-hub-ico" aria-hidden="true">🔁</span>
+                  <span class="cy-hub-badge mb-badge${window.MistakeBank?.count() ? ' has' : ''}" data-mistakes-badge>${window.MistakeBank?.badgeText() || 'Порожньо'}</span>
+                </div>
+                <h4 class="cy-hub-title">Банк помилок</h4>
+                <p class="cy-hub-desc">Питання, у яких ви помилились, — повторюйте, доки не відповісте правильно</p>
+                <div class="cy-hub-foot">
+                  <span data-mistakes-foot>${window.MistakeBank?.footText() || 'Помилок поки немає'}</span>
+                  <span class="cy-arr" aria-hidden="true">→</span>
+                </div>
+              </button>
             </div>
           </section>
 
@@ -1010,6 +1032,7 @@
         if (hub === 'sr') showWorkModal('sr');
         else if (hub === 'kr') showWorkModal('kr');
         else if (hub === 'exams') showExamsModal();
+        else if (hub === 'mistakes') window.Quiz?.openMistakesChooser();
         else window.TeacherAuth?.openHubModal(hub);
       });
     });
