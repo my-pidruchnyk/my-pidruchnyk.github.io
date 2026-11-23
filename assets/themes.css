@@ -314,6 +314,22 @@ html[data-theme] :is(.quiz-backdrop, .auth-modal-backdrop) { background: var(--m
 html[data-theme] :is(.qfs-btn-primary, .auth-submit-btn) { background: linear-gradient(90deg, var(--m-pen), var(--m-pen2)); color: var(--m-on, #111); }
 html[data-theme] :is(.quiz-submit-btn, .qcd-confirm-btn) { color: var(--m-on, #111); }
 html[data-theme] .pdf-select option { background: var(--m-bg); }
+/* Неон, прописаний в app.css числами (#00f0ff / rgb(0 240 255)), — у барвах теми.
+   --hub-c: рамка й світіння вікон без власного кольору розділу (Центр тестування, Банк помилок, PDF…);
+   вікна розділів з inline --hub-c перефарбовує правило [style*="#00f0ff"] вище. Усередині вікон --pen = --m-pen. */
+html[data-theme] :is(.quiz-overlay, .auth-modal-overlay) { --hub-c: var(--m-pen); }
+html[data-theme] .auth-head-ico[style*="#00f0ff"] { color: var(--m-pen) !important; }
+html[data-theme] :is(.auth-modal-close:hover, .qpdf-btn:hover) { background: color-mix(in srgb, var(--pen) 12%, transparent); }
+html[data-theme] :is(.auth-input:focus, .pdf-select:focus) { box-shadow: 0 0 14px color-mix(in srgb, var(--pen) 35%, transparent); }
+html[data-theme] .auth-submit-btn { box-shadow: 0 0 16px color-mix(in srgb, var(--m-pen) 40%, transparent); }
+html[data-theme] .auth-submit-btn:hover { box-shadow: 0 0 24px color-mix(in srgb, var(--m-pen2) 60%, transparent); }
+html[data-theme] .hub-tests-guide { background: color-mix(in srgb, var(--pen) 6%, transparent); border-color: color-mix(in srgb, var(--pen) 30%, transparent); }
+html[data-theme] .tc-stats-box { background: color-mix(in srgb, var(--pen) 6%, transparent); }
+html[data-theme] .pdf-layout-card input:checked + .plc-content { background: color-mix(in srgb, var(--pen) 12%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--pen) 30%, transparent); }
+html[data-theme] .wm-vbtn.active { background: color-mix(in srgb, var(--pen) 18%, transparent); border-color: var(--pen); color: var(--pen); }
+html[data-theme] .wm-tab.active { background: color-mix(in srgb, var(--pen) 20%, transparent); border-color: var(--pen); }
+html[data-theme] .wm-slider-row input[type=range] { accent-color: var(--pen); }
+html[data-theme] .wm-sl-val { color: var(--pen); }
 /* декоративні шрифти (піксельний, рукописний) — лише в заголовках сторінки; запитання тесту мають читатися легко */
 html:is([data-theme="pixel"], [data-theme="scrapbook"]) :is(.quiz-overlay, .auth-modal-overlay, #wm-overlay, #em-overlay, #pdf-export-modal) { --f-display: var(--f-body); }
 
