@@ -1,0 +1,35 @@
+# Щоденний пост бота «Школярик» у Telegram-канал (bot/post.py).
+# Перший тиждень — гайд по сайту (bot/guide/*.html), далі — новини про оновлення сайту з комітів за добу.
+# Потрібен секрет репозиторію TELEGRAM_BOT_TOKEN (Settings → Secrets and variables → Actions).
+name: Telegram — щоденний пост
+
+on:
+  schedule:
+    - cron: "0 7 * * *"   # 07:00 UTC = 09:00 за Києвом узимку (10:00 улітку)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Лише показати пост у журналі, нічого не надсилати"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-daily
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50   # коміти за останні дні — для поста про оновлення
+
+      - name: Пост у Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python3 bot/post.py ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
