@@ -3724,3 +3724,148 @@ html.m-on .cy-progress.lit .pg-fire {
   .cy-progress .pg-week { grid-column: 1 / -1; }
   .pg-week { justify-content: space-between; }
 }
+
+/* ========================================================
+   🔍 Пошук по всіх підручниках (assets/search.js) — на головній під привітанням
+   ======================================================== */
+.cy-search {
+  margin: 18px 0 0;
+}
+
+.srch-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  height: 54px;
+  border-radius: 99px;
+  border: 1px solid var(--cy-edge);
+  background: var(--cy-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  cursor: text;
+  transition: border-color .2s ease, box-shadow .25s ease;
+}
+
+html[data-theme] .srch-field { box-shadow: var(--t-shadow); }
+
+.srch-field:focus-within {
+  border-color: var(--cy-c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cy-c) 22%, transparent), 0 0 22px color-mix(in srgb, var(--cy-c) 18%, transparent);
+}
+
+.srch-ico { font-size: 18px; flex: none; }
+
+.srch-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--cy-ink);
+  font: 500 16px/1 var(--f-body, var(--f-cy));
+}
+
+.srch-field input::placeholder { color: var(--cy-soft); opacity: .85; }
+.srch-field input::-webkit-search-cancel-button { cursor: pointer; }
+
+.srch-kbd {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--cy-edge);
+  font: 700 12px/1 var(--f-mono);
+  color: var(--cy-soft);
+}
+
+.cy-search.has-q .srch-kbd,
+.srch-field:focus-within .srch-kbd { display: none; }
+
+.srch-results {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 20px;
+  border: 1px solid var(--cy-edge);
+  background: var(--tm-bg, color-mix(in srgb, var(--cy-bg, #07060f) 88%, transparent));
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+html[data-theme] .srch-results { background: var(--t-menu, var(--paper)); border-radius: var(--t-r, 20px); }
+
+.srch-count,
+.srch-note {
+  margin: 2px 6px 10px;
+  font: 600 12px/1.4 var(--f-mono);
+  color: var(--cy-soft);
+}
+
+.srch-wait { margin-top: 10px; }
+html.m-on .srch-wait { animation: srch-blink 1.4s ease-in-out infinite; }
+@keyframes srch-blink { 50% { opacity: .45; } }
+
+.srch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.srch-item {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  border-left: 3px solid var(--sc);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color .15s ease, border-color .15s ease, translate .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.srch-item:hover,
+.srch-item:focus-visible {
+  outline: none;
+  translate: 4px 0;
+  background: color-mix(in srgb, var(--sc) 12%, transparent);
+  border-color: color-mix(in srgb, var(--sc) 40%, transparent);
+  border-left-color: var(--sc);
+}
+
+.srch-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font: 700 12px/1.2 var(--f-mono);
+  color: var(--sc);
+}
+
+.srch-meta span { color: var(--cy-soft); }
+
+.srch-title {
+  font: 700 15px/1.3 var(--f-display, var(--f-cy));
+  color: var(--cy-ink);
+}
+
+.srch-snip {
+  font: 500 13px/1.45 var(--f-body, var(--f-cy));
+  color: var(--cy-soft);
+}
+
+:is(.srch-snip, .srch-title) mark {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cy-c) 28%, transparent);
+  color: var(--cy-ink);
+}
+
+@media (max-width: 600px) {
+  .srch-field { height: 48px; padding: 0 14px; }
+  .srch-field input { font-size: 15px; }
+  .srch-kbd { display: none; }
+}

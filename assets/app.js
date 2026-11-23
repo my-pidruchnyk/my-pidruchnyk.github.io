@@ -935,6 +935,7 @@
             <span class="cy-me" aria-hidden="true">${state.books.grade}</span>
           </header>
           <section class="cy-hello">${hello}</section>
+          ${window.Search ? window.Search.html() : ''}
           ${window.Progress ? window.Progress.html() : ''}
           
           <!-- 4 ключові розділи контролю знань (хаби) -->
