@@ -117,7 +117,18 @@ def commits_between(start: dt.datetime, end: dt.datetime) -> list[dict]:
         out.append({"sha": sha, "subject": subject.strip(), "body": body, "files": files,
                     "added": added, "removed": removed})
     out.reverse()  # від старших до новіших
-    return out
+    # зміна, яку в ту ж добу відкотили (git revert), — для читачів нічого не змінилось: прибираємо обидва коміти
+    reverted = {}
+    for c in out:
+        m = re.search(r"This reverts commit ([0-9a-f]{7,40})", c["body"])
+        if m:
+            reverted[c["sha"]] = m.group(1)
+    gone = set()
+    for rev_sha, target in reverted.items():
+        hit = next((c["sha"] for c in out if c["sha"].startswith(target)), None)
+        if hit:
+            gone.update((rev_sha, hit))
+    return [c for c in out if c["sha"] not in gone]
 
 
 def split_version(subject: str) -> tuple[str, str | None]:
