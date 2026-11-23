@@ -51,7 +51,7 @@
   const REVEAL = '.cy-group h3, .cy-card';
   const TILT = '.cy-card:not(:disabled), .cy-hub-card';
   const RIPPLE = '.cy-card:not(:disabled), .cy-hub-card, .cy-go, .cy-teacher-btn, .auth-submit-btn, .qfs-btn, '
-    + '.quiz-submit-btn, .qcd-confirm-btn, .qpdf-btn, .tm-item, .bar .back, .nb-margin-quiz, .cy-soc-btn, .soc-item';
+    + '.quiz-submit-btn, .qcd-confirm-btn, .qpdf-btn, .tm-item, .bar .back, .nb-margin-quiz';
   const MAGNET = '.gear-btn, .cy-go';
 
   /* шар ефектів усередині елемента (обрізається по його кутах; сам елемент НЕ отримує overflow:hidden,

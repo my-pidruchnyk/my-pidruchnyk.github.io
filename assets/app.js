@@ -928,7 +928,6 @@
               <span class="t-ico" aria-hidden="true">👩‍🏫</span>
               <span class="t-txt">${isTeacher ? 'Вчитель ✓' : 'Вхід для вчителя'}</span>
             </button>
-            ${window.Social ? window.Social.html() : ''}
             <span class="cy-me" aria-hidden="true">${state.books.grade}</span>
           </header>
           <section class="cy-hello">${hello}</section>
