@@ -117,21 +117,16 @@ def commits_between(start: dt.datetime, end: dt.datetime) -> list[dict]:
         out.append({"sha": sha, "subject": subject.strip(), "body": body, "files": files,
                     "added": added, "removed": removed})
     out.reverse()  # від старших до новіших
-    # зміна, яку в ту ж добу відкотили (git revert), — для читачів нічого не змінилось: прибираємо обидва коміти
-    reverted = {}
-    for c in out:
-        m = re.search(r"This reverts commit ([0-9a-f]{7,40})", c["body"])
-        if m:
-            reverted[c["sha"]] = m.group(1)
-    gone = set()
-    for rev_sha, target in reverted.items():
-        hit = next((c["sha"] for c in out if c["sha"].startswith(target)), None)
-        if hit:
-            gone.update((rev_sha, hit))
-    return [c for c in out if c["sha"] not in gone]
+    return out
+
+
+REVERT = re.compile(r'^Revert "(.*)"$')
 
 
 def split_version(subject: str) -> tuple[str, str | None]:
+    """«Назва (v14.9)» → («Назва», «v14.9»); відкат «Revert "Назва (v15.0)"» → («Скасовано: Назва», None)."""
+    if (rv := REVERT.match(subject.strip())):
+        return "Скасовано: " + split_version(rv.group(1))[0], None
     m = re.search(r"\s*\((v\d+(?:\.\d+)*)\)\s*$", subject)
     return (subject[:m.start()], m.group(1)) if m else (subject, None)
 
@@ -181,7 +176,13 @@ def areas_of(files: list[str]) -> list[str]:
 # ---------------------------------------------------------------- тексти постів
 def updates_post(commits: list[dict], day: dt.date) -> str:
     e = html.escape
-    versions = [v for c in commits if (v := split_version(c["subject"])[1])]
+    # версія — та, що реально опублікована (index.html в останньому коміті), а не з назв комітів:
+    # після відкату назва старого коміту ще містить «(v15.0)», а на сайті вже попередня версія
+    try:
+        live = re.search(r"\?v=(\d+(?:\.\d+)*)", git("show", "HEAD:index.html"))
+        versions = [f"v{live.group(1)}"] if live else []
+    except subprocess.CalledProcessError:
+        versions = [v for c in commits if (v := split_version(c["subject"])[1])]
     fixes = sum(1 for c in commits if FIX_WORDS.search(c["subject"]))
     lines = [f"🛠 <b>Оновлення сайту · {ua_date(day)}</b>"]
     if versions:
@@ -189,7 +190,7 @@ def updates_post(commits: list[dict], day: dt.date) -> str:
     lines += ["", "<b>Що нового:</b>"]
     for c in commits[::-1][:8]:  # найновіші — першими
         title, _ = split_version(c["subject"])
-        icon = "🐞" if FIX_WORDS.search(c["subject"]) else "✨"
+        icon = "↩️" if REVERT.match(c["subject"]) else "🐞" if FIX_WORDS.search(c["subject"]) else "✨"
         lines.append(f"{icon} <b>{e(title)}</b>")
         for b in bullets(c["body"]):
             if (b := humanize(b)):
