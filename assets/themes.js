@@ -60,12 +60,15 @@
           <stop offset="1" style="stop-color:var(--gear-b, var(--cy-m, #ff2bd6))"/>
         </linearGradient>
       </defs>
-      <path class="gear-body" fill="url(#gear-grad)" d="${gearPath(50, 50, 48, 38, 10)}"/>
-      <circle class="gear-ring" cx="50" cy="50" r="27" fill="none" stroke-width="2.5"/>
-      <g class="gear-bolts">${[0, 1, 2, 3, 4].map(i => {
-        const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
-        return `<circle cx="${(50 + 32.5 * Math.cos(a)).toFixed(2)}" cy="${(50 + 32.5 * Math.sin(a)).toFixed(2)}" r="2.2"/>`;
-      }).join('')}</g>
+      <!-- ротор: повільне «холосте» обертання (CSS), поверх нього — оберти від кліків (--gear-rot на .gear-svg) -->
+      <g class="gear-rotor">
+        <path class="gear-body" fill="url(#gear-grad)" d="${gearPath(50, 50, 48, 38, 10)}"/>
+        <circle class="gear-ring" cx="50" cy="50" r="27" fill="none" stroke-width="2.5"/>
+        <g class="gear-bolts">${[0, 1, 2, 3, 4].map(i => {
+          const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+          return `<circle cx="${(50 + 32.5 * Math.cos(a)).toFixed(2)}" cy="${(50 + 32.5 * Math.sin(a)).toFixed(2)}" r="2.2"/>`;
+        }).join('')}</g>
+      </g>
     </svg>`;
 
   // зубчасте колесо: n зубів, трапеції між радіусами rIn і rOut
@@ -81,9 +84,13 @@
   }
 
   let spins = 0;
+  const reduced = () => window.P8Motion ? !window.P8Motion.on : matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // перезапуск одноразової CSS-анімації: зняти клас → reflow → поставити знову
+  const replay = (el, cls) => { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
   const spin = (turns = 1) => {
     spins += turns;
     document.querySelectorAll('.gear-svg').forEach(s => s.style.setProperty('--gear-rot', `${spins * 120}deg`));
+    document.querySelectorAll('.gear-btn').forEach(b => replay(b, 'burst'));  // кільце-хвиля від шестерні
   };
 
   function menuHTML() {
@@ -99,7 +106,42 @@
               <span class="tm-check" aria-hidden="true">✓</span>
             </button>`).join('')}
         </div>
+        ${motionHTML()}
       </div>`;
+  }
+
+  /* перемикач «Анімації» (стан і логіка — window.P8Motion у motion.js) */
+  const MOTION = [
+    { id: 'auto', label: 'Як у системі' },
+    { id: 'on', label: 'Увімк.' },
+    { id: 'off', label: 'Вимк.' },
+  ];
+  const motionNote = () => {
+    const M = window.P8Motion;
+    if (!M) return '';
+    if (M.mode !== 'auto') return M.on ? 'Анімації ввімкнено на цьому сайті' : 'Сайт нерухомий';
+    return M.system ? 'Зараз: увімкнено (як у системі)' : 'Зараз: вимкнено — у системі «менше руху»';
+  };
+  function motionHTML() {
+    const M = window.P8Motion;
+    if (!M) return '';
+    const i = MOTION.findIndex(m => m.id === M.mode);
+    return `
+        <div class="tm-motion" role="group" aria-label="Анімації">
+          <div class="tm-motion-head"><span>Анімації</span><small class="tm-motion-note">${motionNote()}</small></div>
+          <div class="tm-seg" style="--seg-i:${i}">
+            ${MOTION.map(m => `<button type="button" class="tm-seg-btn" role="menuitemradio" data-motion="${m.id}"
+                    aria-checked="${m.id === M.mode}">${m.label}</button>`).join('')}
+          </div>
+        </div>`;
+  }
+  function syncMotion() {
+    const M = window.P8Motion;
+    if (!M) return;
+    const i = MOTION.findIndex(m => m.id === M.mode);
+    document.querySelectorAll('.tm-seg').forEach(seg => seg.style.setProperty('--seg-i', i));
+    document.querySelectorAll('.tm-seg-btn').forEach(b => b.setAttribute('aria-checked', String(b.dataset.motion === M.mode)));
+    document.querySelectorAll('.tm-motion-note').forEach(n => { n.textContent = motionNote(); });
   }
 
   function mount(me) {
@@ -132,13 +174,29 @@
   }
 
   function choose(id) {
-    current = apply(id).id;
-    save(current);
-    document.querySelectorAll('.tm-item').forEach(b => b.setAttribute('aria-checked', String(b.dataset.themeId === current)));
+    const run = () => {
+      current = apply(id).id;
+      save(current);
+      document.querySelectorAll('.tm-item').forEach(b => b.setAttribute('aria-checked', String(b.dataset.themeId === current)));
+    };
+    // нова тема «розливається» колом від шестерні (View Transitions; де їх немає — миттєво)
+    const gear = document.querySelector('.gear-btn');
+    if (id !== current && gear && document.startViewTransition && !reduced()) {
+      const r = gear.getBoundingClientRect();
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      root.style.setProperty('--vt-x', `${x}px`);
+      root.style.setProperty('--vt-y', `${y}px`);
+      root.style.setProperty('--vt-r', `${Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))}px`);
+      root.classList.add('theme-vt');
+      const vt = document.startViewTransition(run);
+      vt.finished.finally(() => root.classList.remove('theme-vt'));
+    } else run();
     spin(2);  // «клац» — шестерня докручується при зміні теми
+    replay(document.querySelector('.gear-num'), 'pop');
   }
 
   function init() {
+    window.P8Motion?.onChange(syncMotion);  // режим міг змінитись і в іншому місці (системне налаштування)
     const scan = () => document.querySelectorAll('.cy-me').forEach(mount);
     scan();
     new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
@@ -156,6 +214,8 @@
     document.addEventListener('click', e => {
       const btn = e.target.closest('.gear-btn');
       if (btn) { toggle(btn); return; }
+      const seg = e.target.closest('.tm-seg-btn');
+      if (seg) { window.P8Motion?.set(seg.dataset.motion); spin(1); return; }  // меню лишається відкритим
       const item = e.target.closest('.tm-item');
       if (item) { choose(item.dataset.themeId); const b = openMenu(); if (b) setTimeout(() => toggle(b, false), 260); b?.focus(); }
     });
@@ -165,7 +225,7 @@
       if (!b) return;
       if (e.key === 'Escape') { e.preventDefault(); toggle(b, false); b.focus(); return; }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
-        const items = [...document.querySelectorAll('.tm-item')];
+        const items = [...document.querySelectorAll('.tm-item, .tm-seg-btn')];
         const i = items.indexOf(document.activeElement);
         const n = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1
           : (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;

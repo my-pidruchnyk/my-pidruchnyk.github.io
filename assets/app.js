@@ -1140,7 +1140,8 @@
     n = Math.min(Math.max(n, 1), b.pages);
     const img = document.getElementById('img');
     if (!img) return;
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // перемикач «Анімації» (motion.js); без нього — системне «менше руху»
+    const reduce = window.P8Motion ? !window.P8Motion.on : matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (dir && n !== state.page && img.complete && img.naturalWidth && !reduce) {
       // стара сторінка перегортається поверх нової
       document.querySelectorAll('.flip').forEach(f => f.remove());

@@ -41,16 +41,110 @@
   overflow: visible;
   /* окрема властивість rotate, а не transform: не конфліктує з іншими трансформаціями (див. базу знань) */
   rotate: var(--gear-rot, 0deg);
-  transition: rotate .8s cubic-bezier(.34, 1.56, .64, 1);
+  /* пружина (linear() — справжнє «перелітання й відскок»; старі браузери беруть cubic-bezier з першого рядка) */
+  transition: rotate 1s cubic-bezier(.34, 1.56, .64, 1), scale .45s cubic-bezier(.34, 1.56, .64, 1), filter .3s ease;
+  transition: rotate 1.1s linear(0, .009, .035 2.1%, .141, .281 6.7%, .723 12.9%, .938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, .991, .977 51%, .974 53.8%, .975 57.1%, .997 69.8%, 1.003 76.9%, 1.004 83.8%, 1),
+    scale .45s cubic-bezier(.34, 1.56, .64, 1), filter .3s ease;
+}
+
+/* холосте обертання: оберт за 40 с — шестерня «жива», але не відволікає */
+.gear-rotor {
+  transform-box: view-box;
+  transform-origin: 50px 50px;
+  animation: gear-idle 40s linear infinite;
+}
+
+@keyframes gear-idle {
+  to { transform: rotate(360deg); }
 }
 
 .gear-btn:hover .gear-svg {
-  rotate: calc(var(--gear-rot, 0deg) + 18deg);
-  transition-duration: .4s;
+  rotate: calc(var(--gear-rot, 0deg) + 40deg);
+  scale: 1.08;
+  filter: brightness(1.12) saturate(1.15);
+}
+
+.gear-btn[aria-expanded="true"] .gear-svg {
+  scale: 1.06;
+  filter: brightness(1.15) saturate(1.2);
 }
 
 .gear-btn:active .gear-svg {
-  scale: .94;
+  scale: .9;
+  transition-duration: 1.1s, .12s, .3s;
+}
+
+/* ореол: проявляється при наведенні, «дихає», поки меню відкрите */
+.gear-btn::before,
+.gear-btn::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--gear-a, var(--cy-c, #00f0ff));
+  pointer-events: none;
+  opacity: 0;
+  scale: .75;
+  transition: opacity .3s ease, scale .5s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.gear-btn:hover::before {
+  opacity: .45;
+  scale: 1;
+}
+
+.gear-btn[aria-expanded="true"]::before {
+  opacity: .5;
+  scale: 1;
+  animation: gear-halo 2.2s ease-in-out infinite;
+}
+
+@keyframes gear-halo {
+  50% { scale: 1.12; opacity: .2; }
+}
+
+/* кільце-хвиля при кліку / зміні теми (клас .burst ставить themes.js) */
+.gear-btn.burst::after {
+  animation: gear-burst .7s cubic-bezier(.2, .7, .3, 1);
+}
+
+@keyframes gear-burst {
+  from { opacity: .8; scale: .8; border-width: 3px; }
+  to { opacity: 0; scale: 1.9; border-width: 1px; }
+}
+
+.gear-num {
+  transition: scale .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.gear-btn:hover .gear-num {
+  scale: 1.1;
+}
+
+.gear-num.pop {
+  animation: gear-num-pop .6s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+@keyframes gear-num-pop {
+  0% { scale: 1; }
+  35% { scale: .6; opacity: .4; }
+  100% { scale: 1; opacity: 1; }
+}
+
+/* зміна теми: нова «розливається» колом від шестерні (координати ставить themes.js) */
+html.theme-vt::view-transition-old(root),
+html.theme-vt::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html.theme-vt::view-transition-new(root) {
+  animation: theme-reveal .75s cubic-bezier(.65, 0, .35, 1);
+}
+
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--vt-x, 100%) var(--vt-y, 0)); }
+  to { clip-path: circle(var(--vt-r, 150%) at var(--vt-x, 100%) var(--vt-y, 0)); }
 }
 
 .gear-ring {
@@ -137,7 +231,9 @@
 .tm-list {
   display: grid;
   gap: 4px;
-  max-height: min(76vh, 700px);
+  /* лишаємо місце під перемикачем «Анімації», щоб усе меню вміщалось на екрані */
+  max-height: max(160px, min(calc(100vh - 250px), 640px));
+  max-height: max(160px, min(calc(100dvh - 250px), 640px));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -154,8 +250,22 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background .15s, border-color .15s;
+  transition: background .15s, border-color .15s, translate .3s cubic-bezier(.34, 1.56, .64, 1);
 }
+
+/* кружечки палітри розсуваються віялом при наведенні */
+.tm-sw i {
+  transition: margin .35s cubic-bezier(.34, 1.56, .64, 1), scale .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.tm-item:hover .tm-sw i,
+.tm-item:focus-visible .tm-sw i {
+  margin-left: -2px;
+}
+
+.tm-item:hover .tm-sw i:nth-child(2) { scale: 1.12; }
+
+.tm-item:active { scale: .98; }
 
 .theme-menu.open .tm-item {
   animation: tm-in .38s cubic-bezier(.34, 1.4, .64, 1) both;
@@ -168,6 +278,7 @@
 
 .tm-item:hover,
 .tm-item:focus-visible {
+  translate: 4px 0;
   background: color-mix(in srgb, var(--cy-c) 12%, transparent);
   border-color: color-mix(in srgb, var(--cy-c) 35%, transparent);
   outline: none;
@@ -231,15 +342,104 @@
   scale: 1;
 }
 
-@media (max-width: 600px) {
-  .theme-menu { right: -10px; }
-  .tm-list { max-height: 62vh; }
+/* перемикач «Анімації» внизу меню: три сегменти, підсвітка переїжджає під обраний */
+.tm-motion {
+  margin-top: 8px;
+  padding: 10px 6px 4px;
+  border-top: 1px solid var(--cy-edge);
+  display: grid;
+  gap: 8px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .gear-svg, .theme-menu, .tm-check { transition: none; }
-  .theme-menu.open .tm-item { animation: none; }
+.tm-motion-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+  font: 700 12px/1 var(--f-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--cy-soft);
 }
+
+.tm-motion-note {
+  font: 500 11px/1.25 var(--f-body, system-ui);
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: right;
+}
+
+.tm-seg {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+  border-radius: 99px;
+  border: 1px solid var(--cy-edge);
+  background: color-mix(in srgb, var(--cy-ink) 5%, transparent);
+}
+
+.tm-seg::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  border-radius: 99px;
+  background: var(--cy-c);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cy-c) 45%, transparent);
+  translate: calc(var(--seg-i, 0) * 100%) 0;
+  transition: translate .45s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.tm-seg-btn {
+  position: relative;
+  z-index: 1;
+  padding: 7px 4px;
+  border: 0;
+  border-radius: 99px;
+  background: none;
+  color: var(--cy-ink);
+  font: 700 12px/1.1 var(--f-body, system-ui);
+  cursor: pointer;
+  transition: color .25s ease, scale .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.tm-seg-btn[aria-checked="true"] {
+  color: var(--cy-bg);
+}
+
+.tm-seg-btn:hover { scale: 1.05; }
+.tm-seg-btn:active { scale: .94; }
+
+.tm-seg-btn:focus-visible {
+  outline: 2px solid var(--cy-c);
+  outline-offset: 1px;
+}
+
+@media (max-width: 600px) {
+  .theme-menu { right: -10px; }
+  .tm-list { max-height: max(160px, calc(100dvh - 270px)); }
+}
+
+html.m-off .gear-svg,
+html.m-off .theme-menu,
+html.m-off .tm-check,
+html.m-off .tm-item,
+html.m-off .tm-sw i,
+html.m-off .gear-num,
+html.m-off .gear-btn::before,
+html.m-off .gear-btn::after { transition: none; }
+html.m-off .theme-menu.open .tm-item,
+html.m-off .gear-rotor,
+html.m-off .gear-btn::before,
+html.m-off .gear-btn.burst::after,
+html.m-off .gear-num.pop { animation: none; }
+html.m-off .tm-item:hover,
+html.m-off .tm-item:focus-visible { translate: none; }
+
 
 /* =====================================================================
    СПІЛЬНЕ ДЛЯ ВСІХ ТЕМ (крім «Неону» — там атрибута немає)
@@ -693,6 +893,6 @@ html[data-theme="crt"] :is(.cy-ico, .cy-hub-ico) { filter: grayscale(1) sepia(1)
 html[data-theme="crt"] .cy-hello h2 span { background: none; color: #ffb000; -webkit-text-fill-color: #ffb000; }
 html[data-theme="crt"] .sheet img { filter: sepia(.2); }
 
-@media (prefers-reduced-motion: reduce) {
-  html[data-theme] .cy-sky::before, html[data-theme="crt"] .cy::after { animation: none; }
-}
+html.m-off[data-theme] .cy-sky::before,
+html.m-off[data-theme="crt"] .cy::after { animation: none; }
+

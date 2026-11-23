@@ -371,17 +371,15 @@ input {
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .cy-cur {
-    animation: cyBlink 1.1s steps(1) infinite;
-  }
-
-  @keyframes cyBlink {
-    50% {
-      opacity: 0;
-    }
+@keyframes cyBlink {
+  50% {
+    opacity: 0;
   }
 }
+html.m-on .cy-cur {
+  animation: cyBlink 1.1s steps(1) infinite;
+}
+
 
 /* ---------- Читалка: нічне небо (.cy-sky), неон групи --n ---------- */
 .reader {
@@ -1079,20 +1077,19 @@ details.raw pre {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .flip {
-    display: none;
-  }
-
-  .split {
-    transition: none;
-  }
-
-  .cy-card,
-  .cy-go {
-    transition: none;
-  }
+html.m-off .flip {
+  display: none;
 }
+
+html.m-off .split {
+  transition: none;
+}
+
+html.m-off .cy-card,
+html.m-off .cy-go {
+  transition: none;
+}
+
 
 .nb-page.wide {
   left: 2px;
@@ -3159,14 +3156,23 @@ details.raw summary,
   animation: p8-rise .25s cubic-bezier(.22, .8, .3, 1) both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cy-hello, .cy-hubs-grid > .cy-hub-card, .cy-group,
-  .notebook > *, .notebook .points li,
-  .quiz-q-card, .quiz-final-summary,
-  .quiz-confirm-dialog:not([hidden]), .quiz-confirm-dialog:not([hidden]) .qcd-box {
-    animation: none;
-  }
-  .hit, .bar .back, .stage-tools button, details.raw summary, .mb-clear, .cy-hub-card .cy-arr {
-    transition: none;
-  }
+html.m-off .cy-hello,
+html.m-off .cy-hubs-grid > .cy-hub-card,
+html.m-off .cy-group,
+html.m-off .notebook > *,
+html.m-off .notebook .points li,
+html.m-off .quiz-q-card,
+html.m-off .quiz-final-summary,
+html.m-off .quiz-confirm-dialog:not([hidden]),
+html.m-off .quiz-confirm-dialog:not([hidden]) .qcd-box {
+  animation: none;
 }
+html.m-off .hit,
+html.m-off .bar .back,
+html.m-off .stage-tools button,
+html.m-off details.raw summary,
+html.m-off .mb-clear,
+html.m-off .cy-hub-card .cy-arr {
+  transition: none;
+}
+
