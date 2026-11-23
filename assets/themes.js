@@ -11,14 +11,14 @@
   const KEY = 'p8:theme';
   const G = 'https://fonts.googleapis.com/css2?display=swap&family=';
   const THEMES = [
-    { id: 'neon',       name: 'Неон',            note: 'Кіберпанк «Дія» — як зараз',      tone: 'dark',  sw: ['#07060f', '#00f0ff', '#ff2bd6'] },
+    { id: 'space',      name: 'Обсерваторія',    note: 'Зорі й полярне сяйво — основна',             tone: 'dark',  sw: ['#050816', '#7cf5c3', '#b48cff'], fonts: ['Montserrat+Alternates:wght@500;700', 'Manrope:wght@400;600;800'] },
+    { id: 'neon',       name: 'Неон',            note: 'Кіберпанк «Дія»',                 tone: 'dark',  sw: ['#07060f', '#00f0ff', '#ff2bd6'] },
     { id: 'chalk',      name: 'Крейдяна дошка',  note: 'Дошка, крейда, дерев\'яна рама',  tone: 'dark',  sw: ['#23382f', '#ffe873', '#ff9ecb'], fonts: ['Neucha'] },
     { id: 'blueprint',  name: 'Креслення',       note: 'Синька й міліметрівка',            tone: 'dark',  sw: ['#0d4a9e', '#ffffff', '#ff8a5c'], fonts: ['IBM+Plex+Mono:wght@400;600;700'] },
     { id: 'pixel',      name: '8-біт',           note: 'Кишенькова консоль 1989',          tone: 'light', sw: ['#0f380f', '#306230', '#9bbc0f'], fonts: ['Press+Start+2P'] },
     { id: 'bauhaus',    name: 'Баухаус',         note: 'Коло, трикутник, квадрат',         tone: 'light', sw: ['#d62828', '#003f88', '#f4b400'], fonts: ['Jost:wght@400;500;700;800'] },
     { id: 'scrapbook',  name: 'Скрапбук',        note: 'Крафт, скотч і наліпки',           tone: 'light', sw: ['#c9a77c', '#d1495b', '#ffd23f'], fonts: ['Caveat:wght@600;700', 'Nunito:wght@400;600;800'] },
     { id: 'petrykivka', name: 'Петриківка',      note: 'Орнамент і квітка-розпис',         tone: 'light', sw: ['#b3261e', '#1f6b3a', '#e0a526'], fonts: ['Kurale', 'Lora:ital,wght@0,400;0,600;1,400'] },
-    { id: 'space',      name: 'Обсерваторія',    note: 'Зорі й полярне сяйво',             tone: 'dark',  sw: ['#050816', '#7cf5c3', '#b48cff'], fonts: ['Montserrat+Alternates:wght@500;700', 'Manrope:wght@400;600;800'] },
     { id: 'aero',       name: 'Frutiger Aero',   note: 'Глянцеве скло 2000-х',             tone: 'light', sw: ['#2eaaee', '#6fd04b', '#ffffff'], fonts: ['Comfortaa:wght@500;700', 'Nunito:wght@400;600;800'] },
     { id: 'newspaper',  name: 'Газета 1920-х',   note: 'Растр, лінійки, буквиця',          tone: 'light', sw: ['#f1ece0', '#1a1a1a', '#9b1c1c'], fonts: ['Playfair+Display:ital,wght@0,700;0,900;1,700', 'PT+Serif:ital,wght@0,400;0,700;1,400'] },
     { id: 'crt',        name: 'Термінал',        note: 'Бурштиновий кінескоп',             tone: 'dark',  sw: ['#0c0802', '#ffb000', '#ff6a00'] },
@@ -27,7 +27,9 @@
   const root = document.documentElement;
 
   const read = () => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } };
-  const save = id => { try { id === 'neon' ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, JSON.stringify(id)); } catch {} };
+  // тема за замовчуванням (для тих, хто ще нічого не обирав) — «Обсерваторія»; «Неон» — дизайн app.css без атрибута
+  const DEFAULT = 'space';
+  const save = id => { try { id === DEFAULT ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, JSON.stringify(id)); } catch {} };
 
   function loadFonts(t) {
     if (!t.fonts) return;
@@ -49,7 +51,7 @@
   }
 
   // 1) одразу, ще в <head>
-  let current = apply(read() || 'neon').id;
+  let current = apply(read() || DEFAULT).id;
 
   // 2) шестерня й меню — коли з'явиться DOM
   const GEAR_SVG = `
