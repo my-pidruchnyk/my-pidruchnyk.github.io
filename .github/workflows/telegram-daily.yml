@@ -33,3 +33,14 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: python3 bot/post.py ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
+
+      # Звіт аналітики сайту (GoatCounter) — ЛИШЕ власнику в приватні повідомлення.
+      # Немає GOATCOUNTER_TOKEN / TELEGRAM_OWNER_ID / goatcounter_code — крок тихо пропускається.
+      - name: Аналітика власнику
+        if: always()              # звіт приходить, навіть якщо пост у канал не вийшов
+        continue-on-error: true   # а збій звіту не зачіпає пости в каналі
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GOATCOUNTER_TOKEN: ${{ secrets.GOATCOUNTER_TOKEN }}
+          TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
+        run: python3 bot/analytics.py ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}

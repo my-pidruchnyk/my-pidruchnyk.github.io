@@ -37,3 +37,14 @@ python bot/post.py --token-file <файл з токеном>    # справжн
 - `guide_start` — дата першого поста гайду (UTC);
 - `post_hour_utc` — година поста (має збігатися з cron у workflow);
 - `quiz_daily` — щоденне «Питання дня» після гайду.
+
+## 📊 Аналітика сайту — лише власнику (`analytics.py`)
+Щодня в тому ж запуску бот надсилає **у приватні повідомлення власнику** (не в канал і не в чат) звіт за вчора:
+відвідувачі (і зміна до позавчора), за 7 днів, популярні предмети, пройдені тести, країни, системи.
+Цифри — з GoatCounter (лічильник `assets/stats.js` на сайті, анонімний, без cookie).
+
+Налаштування:
+- `config.json` → `goatcounter_code` — код сайту в GoatCounter (те саме, що `GC_CODE` у `assets/stats.js`);
+- секрети репозиторію: `GOATCOUNTER_TOKEN` (API-ключ GoatCounter), `TELEGRAM_OWNER_ID` (ваш Telegram ID).
+Без них крок тихо пропускається. Перегляд вигляду звіту: `python bot/analytics.py --sample`.
+
