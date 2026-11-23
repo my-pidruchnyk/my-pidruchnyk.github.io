@@ -623,3 +623,26 @@ html.m-off::view-transition-old(*),
 html.m-off::view-transition-new(*) {
   animation: none !important;
 }
+
+/* =====================================================================
+   Вікна «як на Mac» (ефект джина, motion.js): поки йде анімація, вимикаємо звичайне «вистрибування»
+   вікна (scale/translate з пружиною) — інакше два рухи накладаються.
+   .m-ghost — «привид» закритого вікна, що засмоктується назад у кнопку.
+   ===================================================================== */
+html.m-on .m-genie :is(.auth-modal-box, .quiz-dialog) {
+  scale: 1 !important;
+  translate: none !important;
+  transition: none !important;
+  will-change: transform, clip-path;
+}
+
+html.m-on .m-ghost {
+  display: block;
+  opacity: 1;
+  pointer-events: none;
+  transition: none;
+}
+
+html.m-on .m-ghost * {
+  animation: none !important;
+}
