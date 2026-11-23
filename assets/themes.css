@@ -473,6 +473,10 @@ html[data-theme] .stage-tools button { background: var(--t-bar); }
 html[data-theme] .pager input { background: var(--t-input, rgb(0 0 0 / .2)); }
 html[data-tone="light"] .cy *,
 html[data-tone="light"] .reader * { text-shadow: none !important; }
+/* світлі теми: лінія над підписом унизу карток розділів (у app.css вона біла — на світлому тлі зникала) */
+html[data-tone="light"] .cy-hub-foot { border-top: 1px dashed color-mix(in srgb, var(--cy-ink) 28%, transparent); }
+/* стрілка «→» у картці «Банк помилок» брала --n за замовчуванням (неоновий блакитний) — тепер колір самої картки */
+.cy-hub-card.hub-mistakes { --n: var(--hub-c); }
 
 /* 6 кольорів груп предметів (і 4 хаби) — з палітри теми; вихідні неонові кольори з app.js як ключі */
 html[data-theme] [style*="#00f0ff"] { --n: var(--g1) !important; --hub-c: var(--g1) !important; }
@@ -729,6 +733,9 @@ html[data-theme="petrykivka"] .cy {
   --cy-glass: #fffaf0; --cy-edge: #c8961e; --f-cy: "Lora", serif;
 }
 html[data-theme="petrykivka"] :is(.cy-hello, .cy-hub-card) { position: relative; overflow: hidden; }
+/* чіткіша рамка карток — золото орнаменту */
+html[data-theme="petrykivka"] :is(.cy-card, .cy-hub-card) { border: 1.5px solid rgb(200 150 30 / .6); }
+html[data-theme="petrykivka"] .cy-hello { border: 1.5px solid rgb(200 150 30 / .45); }
 html[data-theme="petrykivka"] :is(.cy-hello, .cy-hub-card)::before {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px;
   background: var(--band) 0 0 / 24px 12px repeat-x;
@@ -825,6 +832,8 @@ html[data-theme="aero"] .cy-ico {
 }
 html[data-theme="aero"] .cy-top h1 { color: #fff; text-shadow: 0 2px 6px rgb(0 70 140 / .4) !important; }
 html[data-theme="aero"] .cy-lv { background: rgb(255 255 255 / .8); }
+/* біле скло на світлому небі зливається — даємо картам синю обвідку */
+html[data-theme="aero"] :is(.cy-card, .cy-hub-card, .cy-hello) { border: 1px solid rgb(10 119 189 / .32); }
 
 /* =====================================================================
    9. ГАЗЕТА 1920-х
@@ -851,7 +860,10 @@ html[data-theme="newspaper"] .cy-top h1 { font-size: 34px; font-weight: 900; let
 html[data-theme="newspaper"] .cy-hello { border: 0; border-bottom: 1px solid #1a1a1a; background: transparent; padding-left: 0; padding-right: 0; }
 html[data-theme="newspaper"] .cy-hello h2 { font-weight: 900; }
 html[data-theme="newspaper"] .cy-hello h2 span { background: none; color: #9b1c1c; -webkit-text-fill-color: #9b1c1c; font-style: italic; }
-html[data-theme="newspaper"] :is(.cy-card, .cy-hub-card) { border: 0; border-top: 3px solid #1a1a1a; background: transparent; }
+/* картки — як газетні врізки: тонка рамка, товста лінія зверху, свій аркуш і тінь-зсув (інакше зливаються з тлом) */
+html[data-theme="newspaper"] :is(.cy-card, .cy-hub-card) { border: 1px solid #1a1a1a; border-top-width: 4px; background: #faf7f0; box-shadow: 3px 3px 0 rgb(26 26 26 / .16); }
+html[data-theme="newspaper"] :is(.cy-card:not(:disabled), .cy-hub-card):hover { box-shadow: 5px 5px 0 rgb(155 28 28 / .28); }
+html[data-theme="newspaper"] .cy-hello { box-shadow: none; }
 html[data-theme="newspaper"] :is(.cy-card, .cy-hub-card):hover { background: rgb(155 28 28 / .04) !important; }
 html[data-theme="newspaper"] .cy-hub-ico { filter: grayscale(1) contrast(1.2); }
 html[data-theme="newspaper"] .cy-ico { filter: grayscale(1) contrast(1.2); border-color: #1a1a1a; box-shadow: none; }

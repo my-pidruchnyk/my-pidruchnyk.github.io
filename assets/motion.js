@@ -283,8 +283,9 @@
       .finished.catch(() => {}).finally(() => ghost.remove());
   }
 
+  const canAnimate = typeof Element.prototype.animate === 'function';  // старі браузери — вікна без «джина»
   new MutationObserver(records => {
-    if (!active()) return;
+    if (!active() || !canAnimate) return;
     for (const r of records) {
       if (r.type === 'attributes') {
         const o = r.target;
