@@ -894,6 +894,8 @@
   }
 
   function renderHome() {
+    window.Speech?.stop();     // повернулись на головну — читання конспекту зупиняємо
+    window.Progress?.leave();  // і відлік «сторінку дочитано» теж
     document.title = 'Підручники 8 клас';
     const all = state.books.subjects;
     const groups = new Map();
@@ -933,6 +935,7 @@
             <span class="cy-me" aria-hidden="true">${state.books.grade}</span>
           </header>
           <section class="cy-hello">${hello}</section>
+          ${window.Progress ? window.Progress.html() : ''}
           
           <!-- 4 ключові розділи контролю знань (хаби) -->
           <section class="cy-hubs" aria-label="Розділи оцінювання та контролю знань">
@@ -1163,6 +1166,7 @@
     document.getElementById('prev').disabled = n <= 1;
     document.getElementById('next').disabled = n >= b.pages;
     store.set('last:' + b.slug, n);
+    window.Progress?.page(b.slug, n);   // ≥ 8 с на сторінці → «прочитано» (assets/progress.js)
     store.set('recent', b.slug);
     go(b.slug, n);
     renderNotes();
@@ -1170,11 +1174,16 @@
   }
 
   function renderNotes() {
+    window.Speech?.stop();   // нова сторінка — старий конспект більше не читаємо
     const el = document.getElementById('nbbody');
     const n = state.page, t = state.theses[String(n)], lb = label(state.book, n);
     let html = `<div class="nb-page${lb.includes("–") ? " wide" : ""}" aria-label="Сторінка ${lb || n}">${lb || '·'}</div>`;
     const font = `<span class="nb-font" role="group" aria-label="Розмір шрифту конспекту">
         <button data-fs="-1" aria-label="Зменшити шрифт конспекту">A−</button><button data-fs="1" aria-label="Збільшити шрифт конспекту">A+</button></span>`;
+    // 🔊 «Слухати» — читає конспект уголос (assets/speech.js); лише коли на сторінці є тези
+    const speak = window.Speech && t
+      ? `<button type="button" class="nb-tts" id="btn-tts" aria-pressed="false" title="Прочитати конспект уголос"><span class="tts-ico" aria-hidden="true">🔊</span> <span class="tts-txt">Слухати</span></button>`
+      : '';
     // «Знайшли помилку?» — готовий текст про цю сторінку + перехід у гілку чату (assets/social.js)
     const report = window.Social?.report
       ? `<button type="button" class="nb-report" id="btn-report" title="Знайшли помилку в тезах? Напишіть нам"
@@ -1191,7 +1200,7 @@
           <span class="nb-mq-cnt">12</span>
         </button>`;
       }
-      html += `<div class="nb-head"><span class="nb-kind">${esc(KIND[t.kind] || 'Сторінка')}</span>${font}${report}</div>`;
+      html += `<div class="nb-head"><span class="nb-kind">${esc(KIND[t.kind] || 'Сторінка')}</span>${font}${speak}${report}</div>`;
       if (t.title) html += `<h2>${esc(t.title)}</h2>`;
       if (t.points?.length) html += `<ul class="points">${t.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>`;
       if (t.formulas?.length) html += `<h3>Формули</h3>${t.formulas.map(f => `<div class="formula">${esc(f)}</div>`).join(' ')}`;
@@ -1214,6 +1223,7 @@
       }
     };
     document.getElementById('btn-quiz-launch')?.addEventListener('click', triggerQuiz);
+    document.getElementById('btn-tts')?.addEventListener('click', e => window.Speech?.toggle(e.currentTarget, el));
     document.getElementById('btn-report')?.addEventListener('click', e => window.Social?.report({
       subject: state.book.subject, page: lb || String(state.page), title: t?.title || '', url: location.origin + location.pathname + location.hash, from: e.currentTarget,
     }));

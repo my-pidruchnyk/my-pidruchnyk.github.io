@@ -3542,3 +3542,185 @@ html.m-off .cy-hub-card .cy-arr {
 @media (max-width: 600px) {
   .report-pop { right: 16px; left: 16px; width: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ========================================================
+   🔊 «Слухати» — озвучення конспекту (assets/speech.js)
+   ======================================================== */
+.nb-tts {
+  height: 23px;
+  padding: 0 10px;
+  border-radius: 99px;
+  border: 1px solid var(--desk-edge);
+  background: var(--chip);
+  color: var(--pen);
+  font: 700 11px/1 var(--f-mono);
+  letter-spacing: .03em;
+  cursor: pointer;
+  transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease, scale .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.nb-tts:hover {
+  border-color: var(--pen);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--pen) 40%, transparent);
+}
+
+.nb-tts:active { scale: .94; }
+
+.nb-tts.playing {
+  border-color: var(--pen);
+  background: color-mix(in srgb, var(--pen) 18%, transparent);
+}
+
+html.m-on .nb-tts.playing .tts-ico {
+  display: inline-block;
+  animation: tts-pulse 1s ease-in-out infinite;
+}
+
+@keyframes tts-pulse {
+  50% { scale: 1.25; }
+}
+
+/* пункт, що зараз звучить */
+.notebook .tts-now {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--pen) 14%, transparent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--pen) 14%, transparent);
+  transition: background-color .25s ease, box-shadow .25s ease;
+}
+
+.tts-hint {
+  margin: 8px 0 0;
+  font: 500 12px/1.4 var(--f-body);
+  color: var(--ink-soft);
+}
+
+/* ========================================================
+   🔥 Прогрес і серія днів на головній (assets/progress.js)
+   ======================================================== */
+.cy-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) auto minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 14px 22px;
+  margin: 18px 0 0;
+  padding: 16px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--cy-edge);
+  background: var(--cy-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+html[data-theme] .cy-progress { border-radius: var(--t-r, 20px); box-shadow: var(--t-shadow); }
+
+.cy-progress.empty { grid-template-columns: minmax(0, 1fr) auto; }
+
+.pg-streak {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pg-streak b {
+  display: block;
+  font: 800 20px/1.15 var(--f-display, var(--f-cy));
+  color: var(--cy-ink);
+}
+
+.pg-streak div > span {
+  display: block;
+  margin-top: 3px;
+  font: 500 13px/1.35 var(--f-body, var(--f-cy));
+  color: var(--cy-soft);
+}
+
+.pg-fire {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 28px;
+  background: color-mix(in srgb, var(--cy-c) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cy-c) 40%, transparent);
+  filter: grayscale(.85) opacity(.65);
+  transition: filter .4s ease;
+}
+
+.cy-progress.lit .pg-fire {
+  filter: none;
+  box-shadow: 0 0 18px rgb(255 140 40 / .45);
+}
+
+html.m-on .cy-progress.lit .pg-fire {
+  animation: pg-flame 2.4s ease-in-out infinite;
+}
+
+@keyframes pg-flame {
+  0%, 100% { scale: 1; rotate: 0deg; }
+  30% { scale: 1.06; rotate: -4deg; }
+  60% { scale: .98; rotate: 3deg; }
+}
+
+.pg-week {
+  display: flex;
+  gap: 6px;
+}
+
+.pg-day {
+  width: 30px;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+}
+
+.pg-day i {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-style: normal;
+  font-size: 13px;
+  border: 1.5px dashed color-mix(in srgb, var(--cy-soft) 45%, transparent);
+}
+
+.pg-day.on i {
+  border: 1.5px solid #ff8c28;
+  background: rgb(255 140 40 / .14);
+}
+
+.pg-day.today i { outline: 2px solid color-mix(in srgb, var(--cy-c) 60%, transparent); outline-offset: 2px; }
+
+.pg-day small {
+  font: 600 10px/1 var(--f-mono);
+  color: var(--cy-soft);
+}
+
+.pg-stat b {
+  display: block;
+  font: 800 24px/1.1 var(--f-display, var(--f-cy));
+  color: var(--cy-ink);
+}
+
+.pg-stat span {
+  display: block;
+  margin-top: 3px;
+  font: 500 12px/1.3 var(--f-body, var(--f-cy));
+  color: var(--cy-soft);
+}
+
+@media (max-width: 900px) {
+  .cy-progress { grid-template-columns: minmax(0, 1fr) auto; }
+  .cy-progress .pg-stat { grid-column: span 1; }
+}
+
+@media (max-width: 600px) {
+  .cy-progress,
+  .cy-progress.empty { grid-template-columns: 1fr 1fr; padding: 14px; }
+  .cy-progress .pg-streak,
+  .cy-progress .pg-week { grid-column: 1 / -1; }
+  .pg-week { justify-content: space-between; }
+}

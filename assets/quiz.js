@@ -783,6 +783,11 @@
       this.closeConfirm();
       this.isSubmitted = true;
       this.recordToBank();
+      // прогрес і серія днів (assets/progress.js): тест пройдено, скільки правильних
+      window.Progress?.test({
+        correct: this.questions.filter((q, i) => isAnswerCorrect(q, this.answers[i])).length,
+        total: this.questions.length,
+      });
       this.render();
       this.applyFontScale();
 
