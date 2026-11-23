@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- спрощена емблема для вкладки браузера (16–32 px): зоря над книжкою, без дрібних зір і рядків -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16195a"/>
+      <stop offset="1" stop-color="#050816"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7cf5c3"/>
+      <stop offset="1" stop-color="#b48cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <path d="M32 5 C 33.4 15 36 18 46 19.5 C 36 21 33.4 24 32 34 C 30.6 24 28 21 18 19.5 C 28 18 30.6 15 32 5 Z" fill="url(#ink)"/>
+  <path d="M32 58 C 26 54 17 53 8 54.5 L8 38 C 17 36.5 26 37.5 32 42 Z" fill="#e3fff4"/>
+  <path d="M32 58 C 38 54 47 53 56 54.5 L56 38 C 47 36.5 38 37.5 32 42 Z" fill="#ece3ff"/>
+</svg>

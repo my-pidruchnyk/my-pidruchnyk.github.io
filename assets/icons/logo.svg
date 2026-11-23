@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Мій підручник">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16195a"/>
+      <stop offset=".55" stop-color="#0a0d33"/>
+      <stop offset="1" stop-color="#050816"/>
+    </linearGradient>
+    <linearGradient id="aurora" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7cf5c3" stop-opacity="0"/>
+      <stop offset=".35" stop-color="#7cf5c3" stop-opacity=".55"/>
+      <stop offset=".7" stop-color="#b48cff" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#b48cff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7cf5c3"/>
+      <stop offset="1" stop-color="#b48cff"/>
+    </linearGradient>
+    <linearGradient id="pageL" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9fff0"/>
+    </linearGradient>
+    <linearGradient id="pageR" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e6dbff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- полярне сяйво -->
+  <path d="M-10 250 C 110 150 250 300 522 150 L522 215 C 270 345 120 220 -10 320 Z" fill="url(#aurora)" opacity=".55"/>
+
+  <!-- зорі -->
+  <g fill="#fff">
+    <circle cx="92" cy="96" r="5"/>
+    <circle cx="418" cy="84" r="4"/>
+    <circle cx="448" cy="196" r="3"/>
+    <circle cx="66" cy="214" r="3"/>
+    <circle cx="140" cy="168" r="2.5" opacity=".8"/>
+    <circle cx="370" cy="150" r="2.5" opacity=".8"/>
+    <circle cx="186" cy="64" r="2.5" opacity=".7"/>
+    <circle cx="330" cy="52" r="3" opacity=".9"/>
+  </g>
+  <path d="M418 66 l4 14 14 4 -14 4 -4 14 -4 -14 -14 -4 14 -4 z" fill="#fff" opacity=".9"/>
+
+  <!-- зоря знань над книжкою (без номера класу — емблема для всіх класів) -->
+  <circle cx="256" cy="158" r="78" fill="url(#ink)" opacity=".16"/>
+  <path d="M256 62 C 264 128 286 150 352 158 C 286 166 264 188 256 254 C 248 188 226 166 160 158 C 226 150 248 128 256 62 Z" fill="url(#ink)"/>
+  <circle cx="256" cy="158" r="12" fill="#ffffff" opacity=".9"/>
+
+  <!-- розгорнута книжка -->
+  <path d="M256 430 C 210 398 148 390 86 400 L86 262 C 148 250 210 258 256 290 Z" fill="url(#pageL)"/>
+  <path d="M256 430 C 302 398 364 390 426 400 L426 262 C 364 250 302 258 256 290 Z" fill="url(#pageR)"/>
+  <!-- рядки тексту на сторінках -->
+  <g fill="none" stroke-linecap="round" stroke-width="8" opacity=".55">
+    <path d="M118 300 C 160 294 196 300 226 314" stroke="#3fbf93"/>
+    <path d="M118 334 C 160 328 196 334 226 348" stroke="#3fbf93"/>
+    <path d="M118 368 C 160 362 196 368 226 382" stroke="#3fbf93" opacity=".7"/>
+    <path d="M394 300 C 352 294 316 300 286 314" stroke="#8a6be0"/>
+    <path d="M394 334 C 352 328 316 334 286 348" stroke="#8a6be0"/>
+    <path d="M394 368 C 352 362 316 368 286 382" stroke="#8a6be0" opacity=".7"/>
+  </g>
+  <!-- корінець -->
+  <path d="M256 290 L256 430" stroke="#050816" stroke-width="6" opacity=".35"/>
+</svg>

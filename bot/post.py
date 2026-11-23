@@ -4,8 +4,8 @@
 Логіка — без стану, усе виводиться з дати запуску:
   * перші N днів від guide_start (bot/config.json) — гайд: bot/guide/01.html, 02.html, …
     (якщо за добу були оновлення сайту — коротко згадуються внизу поста гайду);
-  * далі — пост «Оновлення сайту» з аналізом комітів за останню добу
-    (якщо комітів не було — пост не виходить).
+  * далі — щодня «Питання дня» (вікторина Telegram з термінів підручників) і, якщо за добу були коміти,
+    пост «Оновлення сайту» з їх аналізом.
 Доба = 24 год до останнього «часу посту» (post_hour_utc), тож запуск із запізненням нічого не губить.
 
 Запуск:
@@ -13,6 +13,7 @@
   python bot/post.py --dry-run       # лише показати, що буде опубліковано
   python bot/post.py --day 3         # примусово пост гайду № 3
   python bot/post.py --updates       # примусово пост про оновлення
+  python bot/post.py --quiz          # примусово «Питання дня»
   python bot/post.py --since 7d      # вікно комітів (для перевірки): 7d, 48h …
   python bot/post.py --chat-id …     # надіслати в інший чат (тест)
 Токен: змінна середовища TELEGRAM_BOT_TOKEN або --token-file <файл>.
@@ -260,12 +261,90 @@ def read_token(token_file: str | None) -> str:
     return tok
 
 
+# ---------------------------------------------------------------- «Питання дня» (після гайду)
+# Як у тестах сайту (assets/quiz.js, «Визначення → Термін»): визначення з тез «Запам'ятай» і 4 терміни на вибір;
+# неправильні варіанти — інші терміни того ж підручника. Вибір детермінований від дня: предмети чергуються,
+# у межах предмета питання не повторюються, доки не вичерпаються (3000+ термінів — на роки).
+QUIZ_Q_MAX, QUIZ_OPT_MAX, QUIZ_EXPL_MAX = 300, 100, 200   # ліміти Telegram для вікторин
+
+
+def page_label(book: dict, n: int) -> str:
+    """Номер сторінки «як надруковано» — та сама формула, що label() в assets/app.js."""
+    if book.get("page_offset") is None:
+        return str(n)
+    sc = book.get("page_scale") or 1
+    p = sc * n - book["page_offset"]
+    if p < 1:
+        return ""
+    return f"{p}–{p + 1}" if sc == 2 else str(p)
+
+
+def shorten(text: str, limit: int) -> str:
+    text = re.sub(r"\s+", " ", str(text)).strip()
+    if len(text) <= limit:
+        return text
+    cut = text[: limit - 1]
+    sp = cut.rfind(" ")
+    return (cut[:sp] if sp > limit * 0.6 else cut).rstrip(" ,;:—-") + "…"
+
+
+def quiz_pool() -> list[dict]:
+    """Предмети з термінами: [{book, items: [(n, label, term, def)…]}]."""
+    books = json.loads((REPO / "books.json").read_text(encoding="utf-8"))["subjects"]
+    pool = []
+    for b in books:
+        f = REPO / "books" / b["slug"] / "theses.json"
+        if not f.exists():
+            continue
+        pages = json.loads(f.read_text(encoding="utf-8")).get("pages", {})
+        items, seen = [], set()
+        for key in sorted((k for k in pages if k.isdigit()), key=int):
+            lb = page_label(b, int(key))
+            for t in pages[key].get("terms") or []:
+                term, d = str(t.get("term", "")).strip(), str(t.get("def", "")).strip()
+                if not lb or not term or not d or len(term) > 60 or len(d) < 12 or term.lower() in seen:
+                    continue
+                seen.add(term.lower())
+                items.append((int(key), lb, term, d))
+        if len(items) >= 8:
+            pool.append({"book": b, "items": items})
+    pool.sort(key=lambda x: x["book"]["slug"])
+    return pool
+
+
+def pick_quiz(day_index: int) -> dict:
+    import random
+    pool = quiz_pool()
+    subj = pool[day_index % len(pool)]
+    order = list(range(len(subj["items"])))
+    random.Random(subj["book"]["slug"]).shuffle(order)          # фіксований порядок для предмета
+    n, lb, term, d = subj["items"][order[(day_index // len(pool)) % len(order)]]
+    rnd = random.Random(f"{subj['book']['slug']}:{term}")
+    others = [it[2] for it in subj["items"] if it[2].lower() != term.lower() and len(it[2]) <= QUIZ_OPT_MAX]
+    rnd.shuffle(others)
+    options = [term[:QUIZ_OPT_MAX]] + others[:3]
+    rnd.shuffle(options)
+    b = subj["book"]
+    head = f"🧠 Питання дня · {b['subject']}, с. {lb}\n\nЯкий термін означає: «"
+    question = head + shorten(d, QUIZ_Q_MAX - len(head) - 2) + "»?"
+    expl = shorten(f"✅ {term} — {d}", QUIZ_EXPL_MAX)
+    return {"question": question, "options": options, "correct": options.index(term[:QUIZ_OPT_MAX]),
+            "explanation": expl, "url": f"{CONFIG['site_url']}#{b['slug']}.{n}", "subject": b["subject"], "label": lb}
+
+
+def quiz_preview(q: dict) -> str:
+    letters = "АБВГ"
+    opts = "\n".join(f"  {letters[i]}) {o}{'   ✓' if i == q['correct'] else ''}" for i, o in enumerate(q["options"]))
+    return f"{q['question']}\n{opts}\n  пояснення: {q['explanation']}\n  кнопка: {q['url']}"
+
+
 # ---------------------------------------------------------------- головне
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="лише показати пост, нічого не надсилати")
     ap.add_argument("--day", type=int, help="примусово пост гайду № N (1…)")
     ap.add_argument("--updates", action="store_true", help="примусово пост про оновлення")
+    ap.add_argument("--quiz", action="store_true", help="примусово «Питання дня» (вікторина)")
     ap.add_argument("--since", help="вікно комітів замість доби: 7d, 48h …")
     ap.add_argument("--chat-id", help="куди надіслати замість каналу з config.json (тест)")
     ap.add_argument("--token-file", help="файл із токеном замість TELEGRAM_BOT_TOKEN")
@@ -276,47 +355,69 @@ def main() -> None:
     start = end - (parse_span(a.since) if a.since else dt.timedelta(days=1))
     commits = commits_between(start, end if not a.since else now)
 
-    guide_day = (end.date() - dt.date.fromisoformat(CONFIG["guide_start"])).days + 1
+    days_since_start = (end.date() - dt.date.fromisoformat(CONFIG["guide_start"])).days
+    guide_day = days_since_start + 1
     if a.day:
         guide_day = a.day
-    if a.updates:
+    if a.updates or a.quiz:
         guide_day = 0
 
-    if guide_day < 1 and not a.updates:
+    if guide_day < 1 and not (a.updates or a.quiz):
         print(f"[{now:%Y-%m-%d %H:%M} UTC] Гайд ще не почався — перший пост {CONFIG['guide_start']}.")
         return
+
+    posts: list[tuple[str, object, str]] = []   # (вид, текст або вікторина, опис)
     if 1 <= guide_day <= len(GUIDE):
         text = GUIDE[guide_day - 1].read_text(encoding="utf-8").strip()
         if commits:
             text += updates_footer(commits)
-        kind = f"гайд, день {guide_day} з {len(GUIDE)}"
-    elif commits:
-        text = updates_post(commits, end.date())
-        kind = f"оновлення: {plural(len(commits), 'коміт', 'коміти', 'комітів')}"
+        posts.append(("text", text, f"гайд, день {guide_day} з {len(GUIDE)}"))
     else:
-        print(f"[{now:%Y-%m-%d %H:%M} UTC] Гайд завершено, а за добу оновлень не було — пост не виходить.")
-        return
+        if commits and not a.quiz:
+            posts.append(("text", updates_post(commits, end.date()),
+                          f"оновлення: {plural(len(commits), 'коміт', 'коміти', 'комітів')}"))
+        if (CONFIG.get("quiz_daily", True) and not a.updates) or a.quiz:
+            q = pick_quiz(max(days_since_start - len(GUIDE), 0))
+            posts.append(("quiz", q, f"питання дня: {q['subject']}, с. {q['label']}"))
 
-    if len(text) > 4096:
-        raise SystemExit(f"Пост задовгий для Telegram: {len(text)} символів (максимум 4096).")
-    print(f"=== {kind} · {len(text)} символів · коміти з {start:%Y-%m-%d %H:%M} до {end:%Y-%m-%d %H:%M} UTC ===")
-    print(text)
+    if not posts:
+        print(f"[{now:%Y-%m-%d %H:%M} UTC] Сьогодні публікувати нічого.")
+        return
+    for kind, body, desc in posts:
+        if kind == "text":
+            if len(body) > 4096:
+                raise SystemExit(f"Пост задовгий для Telegram: {len(body)} символів (максимум 4096).")
+            print(f"=== {desc} · {len(body)} символів · коміти з {start:%Y-%m-%d %H:%M} до {end:%Y-%m-%d %H:%M} UTC ===")
+            print(body)
+        else:
+            print(f"=== {desc} ===")
+            print(quiz_preview(body))
     if a.dry_run:
         print("=== dry-run: нічого не надіслано ===")
         return
 
     token = read_token(a.token_file)
     target = a.chat_id or CONFIG["channel"]
-    msg = tg(token, "sendMessage", {
-        "chat_id": target, "text": text, "parse_mode": "HTML",
-        "link_preview_options": {"is_disabled": True}, "reply_markup": buttons(),
-    })
-    print(f"Опубліковано в {target} (message_id {msg['message_id']}).")
     group = CONFIG.get("group_chat_id")
-    if group and not a.chat_id:
-        tg(token, "forwardMessage", {"chat_id": group, "from_chat_id": msg["chat"]["id"],
-                                     "message_id": msg["message_id"]})
-        print(f"Переслано в чат {group}.")
+    for kind, body, desc in posts:
+        if kind == "text":
+            msg = tg(token, "sendMessage", {
+                "chat_id": target, "text": body, "parse_mode": "HTML",
+                "link_preview_options": {"is_disabled": True}, "reply_markup": buttons(),
+            })
+        else:
+            msg = tg(token, "sendPoll", {
+                "chat_id": target, "question": body["question"],
+                "options": [{"text": o} for o in body["options"]],
+                "type": "quiz", "correct_option_id": body["correct"], "is_anonymous": True,
+                "explanation": body["explanation"],
+                "reply_markup": {"inline_keyboard": [[{"text": "📖 Відкрити сторінку", "url": body["url"]}]]},
+            })
+        print(f"Опубліковано в {target}: {desc} (message_id {msg['message_id']}).")
+        if group and not a.chat_id:
+            tg(token, "forwardMessage", {"chat_id": group, "from_chat_id": msg["chat"]["id"],
+                                         "message_id": msg["message_id"]})
+            print(f"  переслано в чат {group}.")
 
 
 if __name__ == "__main__":

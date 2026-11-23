@@ -3407,3 +3407,138 @@ html.m-off .cy-hub-card .cy-arr {
     border-bottom: 1px solid color-mix(in srgb, #2aabee 45%, var(--cy-edge));
   }
 }
+/* Емблема «Мій підручник» у шапці головної (assets/icons/logo.svg) — лише на комп'ютері: на телефоні шапка й так щільна */
+.cy-logo {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / .3);
+  transition: rotate .45s cubic-bezier(.34, 1.56, .64, 1), scale .45s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.cy-logo:hover {
+  rotate: -6deg;
+  scale: 1.06;
+}
+
+@media (max-width: 600px) {
+  .cy-logo { display: none; }
+}
+
+/* ========================================================
+   «⚠️ Помилка?» над конспектом (assets/social.js → Social.report): вікно з готовим текстом про сторінку
+   і кнопкою «Скопіювати й відкрити чат». Кольори — з теми читалки (--paper, --ink, --pen).
+   ======================================================== */
+.nb-report {
+  margin-left: auto;
+  height: 23px;
+  padding: 0 10px;
+  border-radius: 99px;
+  border: 1px solid color-mix(in srgb, #f5a524 55%, var(--desk-edge));
+  background: color-mix(in srgb, #f5a524 10%, transparent);
+  color: var(--ink);
+  font: 700 11px/1 var(--f-mono);
+  letter-spacing: .03em;
+  cursor: pointer;
+  transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease, scale .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.nb-report:hover {
+  border-color: #f5a524;
+  background: color-mix(in srgb, #f5a524 20%, transparent);
+  box-shadow: 0 0 10px rgb(245 165 36 / .35);
+}
+
+.nb-report:active { scale: .94; }
+
+.report-pop {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147482400;
+  width: min(380px, calc(100vw - 32px));
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, #f5a524 50%, var(--desk-edge));
+  background: color-mix(in srgb, var(--desk) 55%, var(--paper));
+  color: var(--ink);
+  box-shadow: 0 18px 50px rgb(0 0 0 / .45);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  display: grid;
+  gap: 10px;
+  opacity: 0;
+  translate: 0 14px;
+  scale: .96;
+  transform-origin: 100% 100%;
+  transition: opacity .18s ease, translate .35s cubic-bezier(.34, 1.56, .64, 1), scale .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.report-pop.open {
+  opacity: 1;
+  translate: 0 0;
+  scale: 1;
+}
+
+.rp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font: 700 15px/1.2 var(--f-display, var(--f-body));
+}
+
+.rp-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--desk-edge);
+  background: var(--chip);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.rp-hint,
+.rp-join,
+.rp-status {
+  margin: 0;
+  font: 500 13px/1.4 var(--f-body);
+  color: var(--ink-soft);
+}
+
+.rp-status:empty { display: none; }
+.rp-status { color: #22c55e; font-weight: 700; }
+
+.rp-join a { color: var(--pen); }
+
+.rp-text {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--desk-edge);
+  background: var(--chip);
+  color: var(--ink);
+  font: 500 12.5px/1.45 var(--f-mono);
+}
+
+.rp-go {
+  display: block;
+  padding: 11px 14px;
+  border-radius: 99px;
+  text-align: center;
+  text-decoration: none;
+  font: 800 14px/1 var(--f-body);
+  color: #fff;
+  background: #2aabee;
+  box-shadow: 0 6px 18px rgb(42 171 238 / .35);
+  transition: background-color .2s ease, translate .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.rp-go:hover { background: #1d95d2; translate: 0 -1px; }
+
+@media (max-width: 600px) {
+  .report-pop { right: 16px; left: 16px; width: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+}

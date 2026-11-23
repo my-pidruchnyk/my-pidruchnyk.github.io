@@ -922,6 +922,7 @@
         <div class="cy-sky" aria-hidden="true"></div><div class="cy-floor" aria-hidden="true"></div>
         <div class="cy-wrap">
           <header class="cy-top">
+            <img class="cy-logo" src="assets/icons/logo.svg" alt="" width="40" height="40">
             <h1>Підручники</h1>
             <span class="cy-lv">${state.books.grade} клас</span>
             <button class="cy-teacher-btn ${isTeacher ? 'authorized' : ''}" id="btn-teacher-top" type="button" title="${isTeacher ? 'Кабінет вчителя (авторизовано)' : 'Вхід для вчителя'}">
@@ -1174,8 +1175,13 @@
     let html = `<div class="nb-page${lb.includes("–") ? " wide" : ""}" aria-label="Сторінка ${lb || n}">${lb || '·'}</div>`;
     const font = `<span class="nb-font" role="group" aria-label="Розмір шрифту конспекту">
         <button data-fs="-1" aria-label="Зменшити шрифт конспекту">A−</button><button data-fs="1" aria-label="Збільшити шрифт конспекту">A+</button></span>`;
+    // «Знайшли помилку?» — готовий текст про цю сторінку + перехід у гілку чату (assets/social.js)
+    const report = window.Social?.report
+      ? `<button type="button" class="nb-report" id="btn-report" title="Знайшли помилку в тезах? Напишіть нам"
+           aria-label="Повідомити про помилку в тезах цієї сторінки"><span aria-hidden="true">⚠️</span> Помилка?</button>`
+      : '';
     if (!t) {
-      html += `<div class="nb-head">${font}</div>`;
+      html += `<div class="nb-head">${font}${report}</div>`;
       html += `<div class="empty"><b>Тез ще немає</b><span>Для сторінки ${lb || n} конспект ще не згенеровано. Сторінку можна читати зліва.</span></div>`;
     } else {
       if (window.Quiz && window.Quiz.hasQuestions(t, state.book, state.page)) {
@@ -1185,7 +1191,7 @@
           <span class="nb-mq-cnt">12</span>
         </button>`;
       }
-      html += `<div class="nb-head"><span class="nb-kind">${esc(KIND[t.kind] || 'Сторінка')}</span>${font}</div>`;
+      html += `<div class="nb-head"><span class="nb-kind">${esc(KIND[t.kind] || 'Сторінка')}</span>${font}${report}</div>`;
       if (t.title) html += `<h2>${esc(t.title)}</h2>`;
       if (t.points?.length) html += `<ul class="points">${t.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>`;
       if (t.formulas?.length) html += `<h3>Формули</h3>${t.formulas.map(f => `<div class="formula">${esc(f)}</div>`).join(' ')}`;
@@ -1208,6 +1214,9 @@
       }
     };
     document.getElementById('btn-quiz-launch')?.addEventListener('click', triggerQuiz);
+    document.getElementById('btn-report')?.addEventListener('click', e => window.Social?.report({
+      subject: state.book.subject, page: lb || String(state.page), title: t?.title || '', url: location.origin + location.pathname + location.hash, from: e.currentTarget,
+    }));
     document.getElementById('raw').addEventListener('toggle', async e => {
       if (!e.target.open) return;
       try {

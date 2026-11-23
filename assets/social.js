@@ -99,5 +99,78 @@
     }
   });
 
-  window.Social = { html, open, close, links: LINKS };
+  /* ---------- «Знайшли помилку?» у читалці ----------
+     Вікно з готовим текстом (предмет, сторінка, посилання) → «Скопіювати й відкрити чат»:
+     текст копіюється, відкривається гілка чату — лишається вставити й дописати, що не так.
+     Посилання на гілку (t.me/c/…) відкривається лише учасникам чату — тому поруч «Приєднатися до чату». */
+  const INVITE = 'https://t.me/+LvAKNmPzuSFkNDZi';
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let reportFrom = null;
+
+  function reportText(info) {
+    return [
+      `⚠️ Помилка в тезах: ${info.subject}, с. ${info.page}${info.title ? ` («${info.title}»)` : ''}`,
+      `Посилання: ${info.url}`,
+      'Що не так: ',
+    ].join('\n');
+  }
+
+  function closeReport() {
+    const box = document.getElementById('report-pop');
+    if (!box || box.hidden) return;
+    box.classList.remove('open');
+    setTimeout(() => { if (!box.classList.contains('open')) box.hidden = true; }, 220);
+    reportFrom?.focus?.();
+  }
+
+  function report(info) {
+    reportFrom = info.from || null;
+    const chat = LINKS.find(l => l.id === 'chat').href;
+    let box = document.getElementById('report-pop');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'report-pop';
+      box.className = 'report-pop';
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'false');
+      box.setAttribute('aria-labelledby', 'report-title');
+      box.hidden = true;
+      document.body.appendChild(box);
+      box.addEventListener('click', e => {
+        if (e.target.closest('.rp-close')) closeReport();
+        const go = e.target.closest('.rp-go');
+        if (go) {
+          const ta = box.querySelector('textarea');
+          const done = () => { box.querySelector('.rp-status').textContent = '✓ Текст скопійовано — встав його в чаті й допиши, що не так.'; };
+          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(ta.value).then(done, () => { ta.select(); document.execCommand('copy'); done(); });
+          else { ta.select(); document.execCommand('copy'); done(); }
+          // посилання (target=_blank) відкривається саме — не заважаємо
+        }
+      });
+    }
+    box.innerHTML = `
+      <div class="rp-head">
+        <b id="report-title">⚠️ Знайшли помилку?</b>
+        <button type="button" class="rp-close" aria-label="Закрити">✕</button>
+      </div>
+      <p class="rp-hint">Ми підготували повідомлення про цю сторінку. Скопіюй його, відкрий чат і допиши, що саме не так.</p>
+      <textarea class="rp-text" rows="4" readonly aria-label="Текст повідомлення">${esc(reportText(info))}</textarea>
+      <a class="rp-go" href="${chat}" target="_blank" rel="noopener">📋 Скопіювати й відкрити чат</a>
+      <p class="rp-status" role="status"></p>
+      <p class="rp-join">Чат не відкривається? Спершу <a href="${INVITE}" target="_blank" rel="noopener">приєднайся до чату</a>.</p>`;
+    box.hidden = false;
+    requestAnimationFrame(() => box.classList.add('open'));
+    box.querySelector('.rp-go').focus({ preventScroll: true });
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !document.getElementById('report-pop')?.hidden) closeReport();
+  });
+  // клік повз вікно — закрити (але не перехоплювати сам клік: це не меню, а підказка)
+  document.addEventListener('pointerdown', e => {
+    const box = document.getElementById('report-pop');
+    if (box && !box.hidden && !box.contains(e.target) && !e.target.closest?.('#btn-report')) closeReport();
+  });
+
+  window.Social = { html, open, close, links: LINKS, report };
 })();
