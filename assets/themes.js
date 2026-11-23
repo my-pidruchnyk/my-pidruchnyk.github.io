@@ -189,7 +189,10 @@
       root.style.setProperty('--vt-r', `${Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))}px`);
       root.classList.add('theme-vt');
       const vt = document.startViewTransition(run);
-      vt.finished.finally(() => root.classList.remove('theme-vt'));
+      // швидке перемикання тем пропускає попередній перехід — це нормально, тема все одно ставиться (run виконується)
+      vt.ready.catch(() => {});
+      vt.updateCallbackDone.catch(() => {});
+      vt.finished.catch(() => {}).finally(() => root.classList.remove('theme-vt'));
     } else run();
     spin(2);  // «клац» — шестерня докручується при зміні теми
     replay(document.querySelector('.gear-num'), 'pop');
