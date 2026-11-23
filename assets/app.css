@@ -3602,7 +3602,7 @@ html.m-on .nb-tts.playing .tts-ico {
   grid-template-columns: minmax(0, 1.6fr) auto minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   gap: 14px 22px;
-  margin: 18px 0 0;
+  margin: 0 0 18px;   /* над привітанням */
   padding: 16px 20px;
   border-radius: 20px;
   border: 1px solid var(--cy-edge);
@@ -3729,7 +3729,7 @@ html.m-on .cy-progress.lit .pg-fire {
    🔍 Пошук по всіх підручниках (assets/search.js) — на головній під привітанням
    ======================================================== */
 .cy-search {
-  margin: 18px 0 0;
+  margin: -8px 0 0;   /* під розділами Тести / СР / КР / Екзамени / Банк помилок */
 }
 
 .srch-field {

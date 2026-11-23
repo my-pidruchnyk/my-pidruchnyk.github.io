@@ -934,9 +934,8 @@
             ${window.Social ? window.Social.html() : ''}
             <span class="cy-me" aria-hidden="true">${state.books.grade}</span>
           </header>
-          <section class="cy-hello">${hello}</section>
-          ${window.Search ? window.Search.html() : ''}
           ${window.Progress ? window.Progress.html() : ''}
+          <section class="cy-hello">${hello}</section>
           
           <!-- 4 ключові розділи контролю знань (хаби) -->
           <section class="cy-hubs" aria-label="Розділи оцінювання та контролю знань">
@@ -1008,6 +1007,8 @@
               </button>
             </div>
           </section>
+
+          ${window.Search ? window.Search.html() : ''}
 
           ${[...groups].map(([g, list], i) => `
             <section class="cy-group" style="--n:${NEON[g] || '#00f0ff'}" aria-label="${esc(g)}"${i ? '' : ' id="list"'}>
