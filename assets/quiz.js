@@ -39,8 +39,11 @@
   // одна перевірка «правильно / ні» для всього модуля (та сама, що й у результатах тесту)
   function isAnswerCorrect(q, ans) {
     if (q.type === 'input') {
-      const user = String(ans ?? '').trim().toLowerCase();
-      const exp = String(q.expectedAnswer ?? '').trim().toLowerCase();
+      // однаковими вважаємо різні апострофи (' ’ ʼ `), «е/ё»-подібні дрібниці не чіпаємо;
+      // ігноруємо крапку/пробіли в кінці й подвійні пробіли — у тезах трапляються різні написання
+      const clean = s => String(s ?? '').toLowerCase().replace(/[’ʼ`‘´]/g, "'").replace(/\s+/g, ' ').trim().replace(/[.!,;:]+$/, '');
+      const user = clean(ans);
+      const exp = clean(q.expectedAnswer);
       return user.length > 0 && user === exp;
     }
     return ans === q.correctIndex;
@@ -122,6 +125,58 @@
     return (lastSpace > 25 ? cut.slice(0, lastSpace) : cut) + '…';
   }
 
+  /* Хибне твердження з правдивого: термін із тез, що трапляється в реченні, підмінюємо іншим терміном
+     того ж підручника. Повертає { text, swappedFrom, swappedTo } або null (у реченні немає відомого терміна).
+     Підміна має бути в перших ~55 символах — питання показує твердження, обрізане до 65. */
+  const LETTER = /[\p{L}\p{N}]/u;
+  const PLAIN_TERM = /^[\p{L}][\p{L}\s'’-]*$/u;
+  function falsify(pt, terms) {
+    if (!pt) return null;
+    const low = pt.toLowerCase();
+    // лише «чисті» терміни з літер (без «…», ком, дужок) — інакше підміна дає уламки на кшталт «however, …»
+    const cands = terms.filter(t => t && t.term && t.term.trim().length >= 4 && t.term.length <= 40 && PLAIN_TERM.test(t.term.trim()));
+    for (const t of shuffle(cands)) {
+      const word = t.term.trim();
+      const idx = low.indexOf(word.toLowerCase());
+      if (idx < 0 || idx > 55) continue;
+      const before = idx ? low[idx - 1] : ' ';
+      const after = low[idx + word.length] || ' ';
+      if (LETTER.test(before) || LETTER.test(after)) continue;          // лише ціле слово/вираз
+      const other = shuffle(cands).find(o => {
+        const w = o.term.trim().toLowerCase();
+        return w !== word.toLowerCase() && !low.includes(w);
+      });
+      if (!other) return null;
+      const orig = pt.slice(idx, idx + word.length);
+      let repl = other.term.trim();
+      const isAcronym = repl.length > 1 && repl[1] === repl[1].toUpperCase() && repl[1] !== repl[1].toLowerCase();
+      if (!isAcronym) {
+        const upper = orig[0] === orig[0].toUpperCase() && orig[0] !== orig[0].toLowerCase();
+        repl = (upper ? repl[0].toUpperCase() : repl[0].toLowerCase()) + repl.slice(1);
+      }
+      return { text: pt.slice(0, idx) + repl + pt.slice(idx + word.length), swappedFrom: orig, swappedTo: repl };
+    }
+    return falsifyNumber(pt);
+  }
+
+  /* Запасний спосіб: змінити число в реченні (рік, параграф, кількість): «1648» → «1658», «§ 16» → «§ 18». */
+  function falsifyNumber(pt) {
+    const re = /\d+/g;
+    let m;
+    while ((m = re.exec(pt))) {
+      if (m.index > 55) break;
+      const prev = pt[m.index - 1] || '', next = pt[m.index + m[0].length] || '';
+      if (prev === ',' || prev === '.' || next === ',' && /\d/.test(pt[m.index + m[0].length + 1] || '')) continue;  // не чіпаємо дроби 3,14
+      const n = parseInt(m[0], 10);
+      const steps = m[0].length === 4 ? [10, 20, 30, 50] : n >= 20 ? [2, 3, 5, 10] : [1, 2, 3];
+      let v = n + (Math.random() < 0.5 ? -1 : 1) * steps[Math.floor(Math.random() * steps.length)];
+      if (v < 0 || v === n) v = n + steps[0];
+      const repl = String(v);
+      return { text: pt.slice(0, m.index) + repl + pt.slice(m.index + m[0].length), swappedFrom: m[0], swappedTo: repl };
+    }
+    return null;
+  }
+
   /* Універсальний конструктор запитань (10 для СР/КР або 12 для Тестів) */
   function buildQuestions({
     curTerms = [],
@@ -143,12 +198,13 @@
       { term: 'Одиниця виміру', def: 'фіксована міра для кількісного порівняння' },
       { term: 'Параметр', def: 'величина, що описує стан досліджуваної системи' }
     ];
-    for (const fb of fallbackTerms) {
-      if (poolTerms.length < 15) poolTerms.push(fb);
-    }
+    // Загальні терміни — ЛИШЕ як неправильні варіанти, коли власних замало; питаннями вони не стають
+    // (інакше в тесті з літератури з'являлось «Який термін означає: кількісна характеристика…» → «Величина»).
+    const fillerTerms = fallbackTerms.filter(fb => !poolTerms.some(t => t.term === fb.term));
 
     const cTerms = shuffle(curTerms);
     const pTerms = shuffle(poolTerms);
+    const distTerms = () => shuffle(pTerms).concat(shuffle(fillerTerms));  // джерело неправильних варіантів
     const cPoints = shuffle(curPoints);
     const pPoints = shuffle(poolPoints);
     const cFormulas = shuffle(curFormulas);
@@ -198,21 +254,8 @@
       return /^[a-zA-Zа-яА-ЯіІїЇєЄґҐ0-9\-]+$/.test(clean) && !clean.includes(' ');
     });
 
-    const fallbackSingleWords = [
-      { term: 'Величина', def: 'кількісна характеристика властивості тіла або процесу' },
-      { term: 'Процес', def: 'послідовна зміна станів об’єкта або системи' },
-      { term: 'Закон', def: 'необхідний і сталий зв’язок між явищами' },
-      { term: 'Система', def: 'сукупність взаємопов’язаних елементів' },
-      { term: 'Параметр', def: 'величина, що описує стан досліджуваної системи' },
-      { term: 'Енергія', def: 'загальна кількісна міра руху і взаємодії всіх видів матерії' },
-      { term: 'Рівняння', def: 'аналітичний запис рівності двох виразів із невідомими' },
-      { term: 'Функція', def: 'відповідність між елементами двох множин' },
-      { term: 'Графік', def: 'наочне геометричне зображення залежності між величинами' }
-    ];
-    for (const fb of fallbackSingleWords) {
-      if (singleWordTerms.length < 15) singleWordTerms.push(fb);
-    }
-
+    // Без «запасних» загальних слів (Енергія, Рівняння…): вони потрапляли в тести не з того предмета.
+    // Якщо однослівних термінів замало — відкритих завдань буде менше, решту доберуть інші типи.
     for (const item of shuffle(singleWordTerms)) {
       if (questions.filter(q => q.type === 'input').length >= targetOpen || questions.length >= TARGET_COUNT) break;
       const termWord = item.term.trim();
@@ -230,144 +273,161 @@
       });
     }
 
-    // 3. Класичні: Визначення → Термін
-    const termsToUse = [...cTerms, ...pTerms];
-    for (const item of termsToUse) {
-      if (questions.length >= TARGET_COUNT) break;
-      const qTitle = `Який термін означає: «${shortText(item.def, 58)}»?`;
-      if (seenTitles.has(qTitle)) continue;
+    // 3–7. Класичні питання. Раніше кожен тип перебирав УСІ терміни книжки по черзі, тож 12 місць
+    // займали «Який термін означає…» (переважно з ІНШИХ сторінок), а твердження, формули й факти сторінки
+    // до тесту не доходили. Тепер: спершу матеріал ЦІЄЇ сторінки/діапазону, типи чергуються по колу;
+    // питання з решти книжки — лише щоб добрати до потрібної кількості.
+    const TF_YES = 'Так, твердження правильне';
+    const TF_NO = 'Ні, твердження помилкове';
+    const TF_EXTRA = ['Правильне лише частково', 'У підручнику про це не сказано'];
 
-      const correctTerm = item.term;
-      const dists = [];
-      for (const other of shuffle(pTerms)) {
-        if (dists.length >= 3) break;
-        if (other.term !== correctTerm && !dists.includes(other.term)) {
-          dists.push(other.term);
+    // Визначення → Термін
+    function* genDefTerm(terms) {
+      for (const item of terms) {
+        const qTitle = `Який термін означає: «${shortText(item.def, 58)}»?`;
+        if (seenTitles.has(qTitle)) continue;
+        const correctTerm = item.term;
+        const dists = [];
+        for (const other of distTerms()) {
+          if (dists.length >= 3) break;
+          if (other.term !== correctTerm && !dists.includes(other.term)) dists.push(other.term);
+        }
+        while (dists.length < 3) dists.push(`Термін ${dists.length + 1}`);
+        const opts = shuffle([correctTerm, ...dists.slice(0, 3)]);
+        seenTitles.add(qTitle);
+        yield {
+          id: `q_term_${questions.length + 1}`,
+          title: qTitle,
+          options: opts,
+          correctIndex: opts.indexOf(correctTerm),
+          explanation: `Правильно: «${item.term}». Визначення: ${item.def}.`
+        };
+      }
+    }
+
+    // «Чи правильне твердження…»: раніше відповідь завжди А і твердження завжди правдиве
+    // («завжди тисни „Так“» працювало). Тепер ~половина тверджень хибні (у реченні з тез термін підмінено
+    // іншим терміном того ж підручника), варіанти перемішуються.
+    // службові рядки тез («Впр. 7: …», «№ 1 — …», «Заставка розділу…») — не матеріал для «так/ні»
+    const META_POINT = /^\s*(впр\.|вправ|№|завдання|заставка|запитання|питання|unit\s*\d|розділ\s+\d+\s*[:(«]|рубрика|ілюстрац|фото|малюнок|обкладинк)/i;
+    // баланс «так/ні» на весь тест: хибне — коли його вдається скласти й хибних не більше, ніж правдивих;
+    // зайві правдиві пропускаємо (інакше «Так» був правильним у ~80–90% питань)
+    let tfTrue = 0, tfFalse = 0;
+    function* genTrueFalse(points) {
+      for (const pt of points) {
+        if (META_POINT.test(pt)) continue;
+        const fake = tfFalse <= tfTrue ? falsify(pt, pTerms) : null;
+        if (!fake && tfTrue > tfFalse) continue;
+        const isTrue = !fake;
+        const qTitle = `Чи правильне твердження: «${shortText(fake ? fake.text : pt, 65)}»?`;
+        if (seenTitles.has(qTitle)) continue;
+        seenTitles.add(qTitle);
+        if (isTrue) tfTrue++; else tfFalse++;
+        const correct = isTrue ? TF_YES : TF_NO;
+        const opts = shuffle([TF_YES, TF_NO, ...TF_EXTRA]);
+        yield {
+          id: `q_tf_${questions.length + 1}`,
+          title: qTitle,
+          options: opts,
+          correctIndex: opts.indexOf(correct),
+          explanation: isTrue
+            ? `Твердження правильне: «${pt}».`
+            : `Твердження помилкове: замість «${fake.swappedTo}» має бути «${fake.swappedFrom}». У тезах: «${pt}».`
+        };
+      }
+    }
+
+    // Формули теми (ключ проти дублів — з формулою: раніше однаковий заголовок пропускав лише одну)
+    function* genFormula(formulas) {
+      for (const f of formulas) {
+        const qTitle = 'Яка формула стосується цієї теми?';
+        const formulaKey = `${qTitle}:${f}`;
+        if (seenTitles.has(formulaKey)) continue;
+        const dists = [];
+        for (const otherF of shuffle(pFormulas)) {
+          if (dists.length >= 3) break;
+          if (otherF !== f && !dists.includes(otherF)) dists.push(otherF);
+        }
+        if (dists.length < 3) continue;  // без вигаданих «x = y · 2»: замало справжніх формул — пропускаємо
+        const opts = shuffle([f, ...dists.slice(0, 3)]);
+        seenTitles.add(formulaKey);
+        yield {
+          id: `q_form_${questions.length + 1}`,
+          title: qTitle,
+          options: opts,
+          correctIndex: opts.indexOf(f),
+          explanation: `Формула теми: ${f}.`
+        };
+      }
+    }
+
+    // Термін → Визначення
+    function* genTermDef(terms) {
+      for (const item of terms) {
+        const qTitle = `«${item.term}» — це:`;
+        if (seenTitles.has(qTitle)) continue;
+        const correctDef = shortText(item.def, 45);
+        const dists = [];
+        for (const other of distTerms()) {
+          if (dists.length >= 3) break;
+          const d = shortText(other.def, 45);
+          if (d !== correctDef && !dists.includes(d)) dists.push(d);
+        }
+        while (dists.length < 3) dists.push(`Параметр стану системи №${dists.length + 1}`);
+        const opts = shuffle([correctDef, ...dists.slice(0, 3)]);
+        seenTitles.add(qTitle);
+        yield {
+          id: `q_def_${questions.length + 1}`,
+          title: qTitle,
+          options: opts,
+          correctIndex: opts.indexOf(correctDef),
+          explanation: `Згідно з темою: «${item.term}» — це ${item.def}.`
+        };
+      }
+    }
+
+    // Ключовий факт ЦІЄЇ теми серед фактів з інших тем
+    function* genFact(points) {
+      for (const pt of points) {
+        const qTitle = 'Оберіть правильний факт з теми:';
+        const correctOpt = shortText(pt, 50);
+        const titleKey = `${qTitle}:${correctOpt}`;
+        if (seenTitles.has(titleKey)) continue;
+        const dists = [];
+        for (const other of shuffle(pPoints)) {
+          if (dists.length >= 3) break;
+          const d = shortText(other, 50);
+          if (d !== correctOpt && !dists.includes(d) && !points.includes(other)) dists.push(d);
+        }
+        if (dists.length < 3) continue;
+        seenTitles.add(titleKey);
+        const opts = shuffle([correctOpt, ...dists.slice(0, 3)]);
+        yield {
+          id: `q_fact_${questions.length + 1}`,
+          title: qTitle,
+          options: opts,
+          correctIndex: opts.indexOf(correctOpt),
+          explanation: `Правильне твердження: «${pt}».`
+        };
+      }
+    }
+
+    // по колу: по одному питанню кожного типу, доки не набрали потрібну кількість або типи не вичерпались
+    function roundRobin(gens) {
+      const active = gens.filter(Boolean);
+      while (questions.length < TARGET_COUNT && active.length) {
+        for (let i = 0; i < active.length && questions.length < TARGET_COUNT;) {
+          const r = active[i].next();
+          if (r.done) active.splice(i, 1);
+          else { questions.push(r.value); i++; }
         }
       }
-      while (dists.length < 3) dists.push(`Термін ${dists.length + 1}`);
-
-      const opts = shuffle([correctTerm, ...dists.slice(0, 3)]);
-      seenTitles.add(qTitle);
-      questions.push({
-        id: `q_term_${questions.length + 1}`,
-        title: qTitle,
-        options: opts,
-        correctIndex: opts.indexOf(correctTerm),
-        explanation: `Правильно: «${item.term}». Визначення: ${item.def}.`
-      });
     }
 
-    // 4. Класичні: Лаконічні питання за тезами (True/False)
-    const pointsToUse = [...cPoints, ...pPoints];
-    for (let i = 0; i < pointsToUse.length; i++) {
-      if (questions.length >= TARGET_COUNT) break;
-      const pt = pointsToUse[i];
-      const statement = shortText(pt, 65);
-      const isTrue = (i % 2 === 0);
-      const qTitle = isTrue
-        ? `Чи правильне твердження: «${statement}»?`
-        : `«${statement}» — чи це твердження помилкове?`;
-
-      if (seenTitles.has(qTitle)) continue;
-      seenTitles.add(qTitle);
-
-      const opts = isTrue ? [
-        'Так, це твердження повністю правильне',
-        'Ні, це твердження є помилковим',
-        'Це твердження стосується іншої теми',
-        'Це твердження діє лише як виняток'
-      ] : [
-        'Ні, твердження є повністю вірним',
-        'Так, це твердження помилкове',
-        'Твердження стосується зовсім іншого розділу',
-        'Твердження суперечить основним законам'
-      ];
-
-      questions.push({
-        id: `q_tf_${questions.length + 1}`,
-        title: qTitle,
-        options: opts,
-        correctIndex: 0,
-        explanation: `Це твердження є науково обґрунтованим: «${pt}».`
-      });
-    }
-
-    // 5. Формули (якщо є)
-    const formulasToUse = [...cFormulas, ...pFormulas];
-    for (const f of formulasToUse) {
-      if (questions.length >= TARGET_COUNT) break;
-      const qTitle = 'Яка формула стосується цієї теми?';
-      if (seenTitles.has(qTitle)) continue;
-      const dists = [];
-      for (const otherF of shuffle(pFormulas)) {
-        if (dists.length >= 3) break;
-        if (otherF !== f && !dists.includes(otherF)) dists.push(otherF);
-      }
-      while (dists.length < 3) dists.push(`x = y · ${dists.length + 2}`);
-      const opts = shuffle([f, ...dists.slice(0, 3)]);
-      seenTitles.add(qTitle);
-      questions.push({
-        id: `q_form_${questions.length + 1}`,
-        title: qTitle,
-        options: opts,
-        correctIndex: opts.indexOf(f),
-        explanation: `Формула теми: ${f}.`
-      });
-    }
-
-    // 6. Класичні: Термін → Визначення
-    for (const item of termsToUse) {
-      if (questions.length >= TARGET_COUNT) break;
-      const qTitle = `«${item.term}» — це:`;
-      if (seenTitles.has(qTitle)) continue;
-
-      const correctDef = shortText(item.def, 45);
-      const dists = [];
-      for (const other of shuffle(pTerms)) {
-        if (dists.length >= 3) break;
-        const d = shortText(other.def, 45);
-        if (d !== correctDef && !dists.includes(d)) dists.push(d);
-      }
-      while (dists.length < 3) dists.push(`Параметр стану системи №${dists.length + 1}`);
-
-      const opts = shuffle([correctDef, ...dists.slice(0, 3)]);
-      seenTitles.add(qTitle);
-      questions.push({
-        id: `q_def_${questions.length + 1}`,
-        title: qTitle,
-        options: opts,
-        correctIndex: opts.indexOf(correctDef),
-        explanation: `Згідно з темою: «${item.term}» — це ${item.def}.`
-      });
-    }
-
-    // 7. Вибір ключового факту з пулу
-    for (const pt of pointsToUse) {
-      if (questions.length >= TARGET_COUNT) break;
-      const qTitle = 'Оберіть правильний факт з теми:';
-      const correctOpt = shortText(pt, 50);
-      const titleKey = `${qTitle}:${correctOpt}`;
-      if (seenTitles.has(titleKey)) continue;
-      seenTitles.add(titleKey);
-
-      const dists = [];
-      for (const other of shuffle(pPoints)) {
-        if (dists.length >= 3) break;
-        const d = shortText(other, 50);
-        if (d !== correctOpt && !dists.includes(d)) dists.push(d);
-      }
-      while (dists.length < 3) dists.push(`Не стосується даного розділу`);
-      const opts = shuffle([correctOpt, ...dists.slice(0, 3)]);
-
-      questions.push({
-        id: `q_fact_${questions.length + 1}`,
-        title: qTitle,
-        options: opts,
-        correctIndex: opts.indexOf(correctOpt),
-        explanation: `Правильне твердження: «${pt}».`
-      });
-    }
+    // спершу — матеріал цієї сторінки / діапазону (усі типи)
+    roundRobin([genDefTerm(cTerms), genTrueFalse(cPoints), genFormula(cFormulas), genTermDef(cTerms), genFact(cPoints)]);
+    // добір — з решти книжки (без «формули/факту цієї теми», бо це вже не ця тема)
+    roundRobin([genDefTerm(pTerms), genTrueFalse(pPoints), genTermDef(pTerms)]);
 
     // Гарантуємо рівно 4 варіанти (А, Б, В, Г) для кожного тестового питання (крім відкритого типу)
     for (const q of questions) {
@@ -1317,5 +1377,6 @@
 
   window.Quiz = new QuizEngine();
   window.Quiz.genForRange = generateQuestionsForRange;
+  window.Quiz.genForPage = generateQuestions;   // тест однієї сторінки (для перевірок і бота)
   window.MistakeBank = MistakeBank;
 })();
